@@ -1,0 +1,40 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "${mod_license}"
+issueTrackerURL = "https://github.com/boredhero/conflagration/issues"
+
+[[mods]]
+    modId = "${mod_id}"
+    version = "${mod_version}"
+    displayName = "${mod_name}"
+    description = '''${mod_description}'''
+    authors = "${mod_authors}"
+    logoFile = "logo.png"
+    logoBlur = false
+    displayURL = "https://github.com/boredhero/conflagration"
+    # Conflagration registers nothing client-side and only changes server-side game logic,
+    # so a client without it can still join a server that has it.
+    displayTest = "IGNORE_ALL_VERSION"
+
+[[dependencies.${mod_id}]]
+    modId = "neoforge"
+    type = "required"
+    versionRange = "${neoforge_version_range}"
+    ordering = "NONE"
+    side = "BOTH"
+
+[[dependencies.${mod_id}]]
+    modId = "minecraft"
+    type = "required"
+    versionRange = "${minecraft_version_range}"
+    ordering = "NONE"
+    side = "BOTH"
+
+# Optional. Conflagration drives FTB Chunks' claim fire protection when present, and runs
+# unchanged when it is absent. Ordering matters so its config exists before we set it.
+[[dependencies.${mod_id}]]
+    modId = "ftbchunks"
+    type = "optional"
+    versionRange = "*"
+    ordering = "AFTER"
+    side = "SERVER"

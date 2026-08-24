@@ -1,0 +1,115 @@
+name: build
+
+on:
+  push:
+    branches: [master, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: MC ${{ matrix.minecraft }} (NeoForge ${{ matrix.neoforge }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 1.21.1 is the reference target: verified against a real server.
+          - minecraft: '1.21.1'
+            neoforge: '21.1.248'
+            mc_range: '[1.21.1,1.22)'
+            nf_range: '[21.1,)'
+            primary: true
+          # Newer branches are best-effort. Mojang changed fire gamerules from 1.21.5
+          # onward, so behaviour there is not identical even when it compiles.
+          - minecraft: '1.21.4'
+            neoforge: '21.4.157'
+            mc_range: '[1.21.4,1.22)'
+            nf_range: '[21.4,)'
+            primary: false
+          - minecraft: '1.21.8'
+            neoforge: '21.8.54'
+            mc_range: '[1.21.8,1.22)'
+            nf_range: '[21.8,)'
+            primary: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew test
+          -Pminecraft_version=${{ matrix.minecraft }}
+          -Pminecraft_version_range=${{ matrix.mc_range }}
+          -Pneoforge_version=${{ matrix.neoforge }}
+          -Pneoforge_version_range=${{ matrix.nf_range }}
+          --stacktrace
+
+      - name: Build jar
+        run: >-
+          ./gradlew build
+          -Pminecraft_version=${{ matrix.minecraft }}
+          -Pminecraft_version_range=${{ matrix.mc_range }}
+          -Pneoforge_version=${{ matrix.neoforge }}
+          -Pneoforge_version_range=${{ matrix.nf_range }}
+          --stacktrace
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.minecraft }}
+          path: build/reports/tests/test/
+          if-no-files-found: ignore
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: conflagration-${{ matrix.minecraft }}
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect jars
+        run: |
+          mkdir -p release
+          find artifacts -name '*.jar' ! -name '*-sources.jar' -exec cp {} release/ \;
+          ls -lh release
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.jar
+          generate_release_notes: true
+          draft: false

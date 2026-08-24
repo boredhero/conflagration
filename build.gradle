@@ -1,0 +1,86 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.144'
+}
+
+// CI overrides these per matrix entry with -Pminecraft_version=... -Pneoforge_version=...
+def mcVersion       = project.findProperty('minecraft_version')
+def mcVersionRange  = project.findProperty('minecraft_version_range')
+def nfVersion       = project.findProperty('neoforge_version')
+def nfVersionRange  = project.findProperty('neoforge_version_range')
+
+group   = project.mod_group_id
+version = "${project.mod_version}+mc${mcVersion}"
+
+base {
+    archivesName = "${project.mod_id}-neoforge-${mcVersion}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+neoForge {
+    version = nfVersion
+    mods {
+        "${project.mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly   'org.junit.platform:junit-platform-launcher'
+}
+
+// The policy layer is pure Java with no Minecraft imports, so it unit-tests
+// without a game harness. See src/test/java.
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = false
+    }
+}
+
+tasks.withType(ProcessResources).configureEach {
+    def expansions = [
+            mod_id                : project.mod_id,
+            mod_name              : project.mod_name,
+            mod_version           : project.mod_version,
+            mod_authors           : project.mod_authors,
+            mod_description       : project.mod_description,
+            mod_license           : project.mod_license,
+            minecraft_version_range: mcVersionRange,
+            neoforge_version_range : nfVersionRange,
+    ]
+    inputs.properties expansions
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand expansions
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+jar {
+    manifest {
+        attributes([
+                'Specification-Title'     : project.mod_id,
+                'Specification-Vendor'    : project.mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.mod_name,
+                'Implementation-Version'  : project.mod_version,
+                'Implementation-Vendor'   : project.mod_authors,
+        ])
+    }
+}

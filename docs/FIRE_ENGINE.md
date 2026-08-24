@@ -1,8 +1,9 @@
 # Experimental frontier fire engine
 
 `[performance].engine = "FRONTIER"` replaces only vanilla's repeated 53-position air spread loop.
-It is disabled by default. Fire lifecycle, survival, rain extinction, age, fire sources, scheduled
-ticks, and the six face-sensitive direct burnout checks still run in `FireBlock.tick`.
+It is enabled by default for new configurations. Fire lifecycle, survival, rain extinction, age,
+fire sources, scheduled ticks, and the six face-sensitive direct burnout checks still run in
+`FireBlock.tick`.
 
 ## Model
 

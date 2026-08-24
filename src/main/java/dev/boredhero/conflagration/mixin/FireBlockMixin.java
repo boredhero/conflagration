@@ -5,16 +5,18 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
-import dev.boredhero.conflagration.optimization.FirePerformance;
+import dev.boredhero.conflagration.heat.FireHeatManager;
+import dev.boredhero.conflagration.optimization.FireDestruction;
 import dev.boredhero.conflagration.optimization.FireDropSuppression;
+import dev.boredhero.conflagration.optimization.FirePerformance;
 import dev.boredhero.conflagration.optimization.FrontierFireEngine;
 import dev.boredhero.conflagration.optimization.VanillaRate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -32,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * object mutability are unchanged.
  *
  * <p>The default optimization intentionally does not inject at the helper head or alter
- * {@code tick}/{@code checkBurnOut}. The separate opt-in FRONTIER injection enters {@code tick}
+ * {@code tick}/{@code checkBurnOut}. The separate FRONTIER injection enters {@code tick}
  * only after lifecycle and direct burnout work. Open Parties and Claims cancels the helper at its
  * head, FTB Chunks and Supplementaries wrap its call site, and Bumblezone injects into burnout;
  * all of those seams stay intact in VANILLA mode.
@@ -45,8 +47,8 @@ abstract class FireBlockMixin {
 
     /**
      * Runs after vanilla lifecycle, age, rain, survival, and six direct burnout checks, immediately
-     * before its 53-candidate spread loop. Disabled by default; returning false leaves the loop and
-     * every other mod's injection point untouched.
+     * before its 53-candidate spread loop. Returning false leaves the loop and every other mod's
+     * injection point untouched.
      */
     @Inject(
             method = "tick",
@@ -57,6 +59,7 @@ abstract class FireBlockMixin {
                                            BlockPos position,
                                            RandomSource random,
                                            CallbackInfo callback) {
+        FireHeatManager.observe(level, position, state);
         if (FrontierFireEngine.tick(level, position, state)) {
             callback.cancel();
         }
@@ -77,6 +80,7 @@ abstract class FireBlockMixin {
         }
         FireDropSuppression.enter();
         try {
+            FireDestruction.beforeBurnout(level, position);
             return original.call(level, position, moving);
         } finally {
             FireDropSuppression.exit();

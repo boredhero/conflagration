@@ -199,6 +199,9 @@ public final class FlammabilityApplier {
         if (state.is(KINDLING)) {
             categories.add(FuelCategory.KINDLING);
         }
+        if (ConflagrationConfig.BURN_CHESTS.get() && state.is(Tags.Blocks.CHESTS_WOODEN)) {
+            categories.add(FuelCategory.CHESTS);
+        }
         if (state.is(BlockTags.LEAVES)) {
             categories.add(FuelCategory.LEAVES);
         }
@@ -211,7 +214,7 @@ public final class FlammabilityApplier {
         if (state.is(BlockTags.SAPLINGS)) {
             categories.add(FuelCategory.SAPLINGS);
         }
-        if (state.is(PLANTS)) {
+        if (state.is(PLANTS) || state.is(BlockTags.FLOWERS)) {
             categories.add(FuelCategory.PLANTS);
         }
         if (state.is(BlockTags.CROPS)) {

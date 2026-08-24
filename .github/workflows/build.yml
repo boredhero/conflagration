@@ -26,18 +26,18 @@ jobs:
           # 1.21.1 is the reference target: verified against a real server.
           - minecraft: '1.21.1'
             neoforge: '21.1.248'
-            mc_range: '[1.21.1,1.22)'
-            nf_range: '[21.1,)'
+            mc_range: '[1.21.1,1.21.2)'
+            nf_range: '[21.1,21.2)'
           # Newer branches are best-effort. Mojang changed fire gamerules from 1.21.5
           # onward, so behaviour there is not identical even when it compiles.
           - minecraft: '1.21.4'
             neoforge: '21.4.157'
-            mc_range: '[1.21.4,1.22)'
-            nf_range: '[21.4,)'
+            mc_range: '[1.21.4,1.21.5)'
+            nf_range: '[21.4,21.5)'
           - minecraft: '1.21.8'
             neoforge: '21.8.54'
-            mc_range: '[1.21.8,1.22)'
-            nf_range: '[21.8,)'
+            mc_range: '[1.21.8,1.21.9)'
+            nf_range: '[21.8,21.9)'
 
     steps:
       - uses: actions/checkout@v4

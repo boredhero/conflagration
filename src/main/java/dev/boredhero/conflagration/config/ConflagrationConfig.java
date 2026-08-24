@@ -1,6 +1,8 @@
 package dev.boredhero.conflagration.config;
 
 import dev.boredhero.conflagration.integration.ClaimProtectionMode;
+import dev.boredhero.conflagration.optimization.FireEngineMode;
+import dev.boredhero.conflagration.optimization.FrontierCompatibilityMode;
 import dev.boredhero.conflagration.policy.FirePreset;
 import dev.boredhero.conflagration.policy.FlammabilityPolicy;
 import dev.boredhero.conflagration.policy.FuelCategory;
@@ -25,6 +27,14 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLACKLIST;
 
     public static final ModConfigSpec.EnumValue<ClaimProtectionMode> CLAIM_FIRE_PROTECTION;
+
+    public static final ModConfigSpec.BooleanValue OPTIMIZE_NEIGHBOUR_SCANS;
+    public static final ModConfigSpec.EnumValue<FireEngineMode> FIRE_ENGINE;
+    public static final ModConfigSpec.EnumValue<FrontierCompatibilityMode> FRONTIER_COMPATIBILITY;
+    public static final ModConfigSpec.IntValue FRONTIER_RESCAN_INTERVAL;
+    public static final ModConfigSpec.IntValue FRONTIER_MAX_EVENTS_PER_TICK;
+    public static final ModConfigSpec.IntValue FRONTIER_MAX_SOURCES_PER_TICK;
+    public static final ModConfigSpec.IntValue FRONTIER_MAX_PENDING_EVENTS;
 
     private static final Map<FuelCategory, ModConfigSpec.IntValue> CUSTOM_IGNITE =
             new EnumMap<>(FuelCategory.class);
@@ -73,7 +83,7 @@ public final class ConflagrationConfig {
 
         builder.comment(
                         "Per-category values, used when preset = CUSTOM.",
-                        "Both numbers are clamped to 0-100. Setting both to 0 makes the category",
+                        "Both numbers are clamped to 0-300. Setting both to 0 makes the category",
                         "fireproof.")
                 .push("custom");
 
@@ -129,6 +139,53 @@ public final class ConflagrationConfig {
                         "  LEAVE_ALONE - do not touch FTB Chunks' own setting.",
                         "Ignored entirely when FTB Chunks is not installed.")
                 .defineEnum("claim_fire_protection", ClaimProtectionMode.ENABLE);
+
+        builder.pop();
+
+        builder.comment(
+                        "Server-side fire performance. These optimizations use narrow mixin",
+                        "injections but preserve NeoForge's contextual fire hooks for modded blocks.")
+                .push("performance");
+
+        OPTIMIZE_NEIGHBOUR_SCANS = builder
+                .comment("Avoid the hundreds of temporary BlockPos objects vanilla creates during",
+                        "each fire spread scan. This preserves scan order, random calls, world reads,",
+                        "and BlockState#getFireSpreadSpeed callbacks. Enabled by default because it",
+                        "does not change fire behavior. Set false as a compatibility escape hatch.")
+                .define("optimize_neighbour_scans", true);
+
+        FIRE_ENGINE = builder
+                .comment("",
+                        "Spread engine. VANILLA preserves Minecraft exactly. FRONTIER is an",
+                        "experimental sparse event engine that scans each fire occasionally and",
+                        "schedules deduplicated ignition arrivals instead of retrying all 53",
+                        "candidates every fire tick. FRONTIER changes timing and RNG distribution.")
+                .defineEnum("engine", FireEngineMode.VANILLA);
+
+        FRONTIER_COMPATIBILITY = builder
+                .comment("",
+                        "AUTO_STRICT falls back to VANILLA when a known claim/fire mod injects into",
+                        "the vanilla spread loop. FORCE_UNSAFE bypasses that guard. It may allow fire",
+                        "through claims or skip special block behavior; pack authors own the result.")
+                .defineEnum("frontier_compatibility", FrontierCompatibilityMode.AUTO_STRICT);
+
+        FRONTIER_RESCAN_INTERVAL = builder
+                .comment("Game ticks before FRONTIER re-discovers edges around the same source fire.",
+                        "Higher values reduce scans; lower values react faster to changed neighbours.")
+                .defineInRange("frontier_rescan_interval", 200, 20, 20_000);
+
+        FRONTIER_MAX_EVENTS_PER_TICK = builder
+                .comment("Maximum due frontier ignitions processed per level per game tick.")
+                .defineInRange("frontier_max_events_per_tick", 2048, 16, 100_000);
+
+        FRONTIER_MAX_SOURCES_PER_TICK = builder
+                .comment("Maximum source fires allowed to discover new frontier edges per level tick.")
+                .defineInRange("frontier_max_sources_per_tick", 256, 1, 10_000);
+
+        FRONTIER_MAX_PENDING_EVENTS = builder
+                .comment("Hard cap on queued ignition arrivals per level. New events are deferred",
+                        "when full rather than allowing an inferno to exhaust server memory.")
+                .defineInRange("frontier_max_pending_events", 100_000, 1024, 2_000_000);
 
         builder.pop();
 

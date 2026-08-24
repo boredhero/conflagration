@@ -14,7 +14,10 @@ issueTrackerURL = "https://github.com/boredhero/conflagration/issues"
     displayURL = "https://github.com/boredhero/conflagration"
     # Conflagration registers nothing client-side and only changes server-side game logic,
     # so a client without it can still join a server that has it.
-    displayTest = "IGNORE_ALL_VERSION"
+    displayTest = "IGNORE_SERVER_VERSION"
+
+[[mixins]]
+    config = "conflagration.mixins.json"
 
 [[dependencies.${mod_id}]]
     modId = "neoforge"

@@ -3,6 +3,7 @@ package dev.boredhero.conflagration;
 import com.mojang.logging.LogUtils;
 import dev.boredhero.conflagration.config.ConflagrationConfig;
 import dev.boredhero.conflagration.integration.FtbChunksIntegration;
+import dev.boredhero.conflagration.optimization.FirePerformance;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -36,10 +37,24 @@ public final class Conflagration {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
-        FlammabilityApplier.apply(LOG);
+        // Static block data is shared by the logical server and client in single-player. Applying
+        // both the server tag load and the following client packet would snapshot our own values as
+        // the baseline and make later restoration impossible.
+        if (event.shouldUpdateStaticData()) {
+            FirePerformance.refreshFromConfig();
+            FlammabilityApplier.apply(LOG);
+        }
     }
 
     private static void onServerStarted(ServerStartedEvent event) {
+        FirePerformance.refreshFromConfig();
+        FirePerformance.logCompatibility(LOG);
+
+        if (!ConflagrationConfig.ENABLED.get()) {
+            LOG.info("[Conflagration] disabled by config; optional integrations left alone");
+            return;
+        }
+
         String result = FtbChunksIntegration.apply(ConflagrationConfig.CLAIM_FIRE_PROTECTION.get(), LOG);
         LOG.info("[Conflagration] {}", result);
     }

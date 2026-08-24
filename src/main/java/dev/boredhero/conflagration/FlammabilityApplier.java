@@ -2,19 +2,24 @@ package dev.boredhero.conflagration;
 
 import dev.boredhero.conflagration.config.ConflagrationConfig;
 import dev.boredhero.conflagration.policy.FlammabilityPolicy;
+import dev.boredhero.conflagration.policy.AppliedValueTracker;
 import dev.boredhero.conflagration.policy.FuelCategory;
 import dev.boredhero.conflagration.policy.Odds;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.common.Tags;
 import org.slf4j.Logger;
 
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -39,6 +44,16 @@ import java.util.Set;
 public final class FlammabilityApplier {
 
     /**
+     * Ground-cover plants that Conflagration intentionally treats as fuel. A dedicated tag avoids
+     * the tempting but incorrect {@code replaceable_by_trees} tag, which also contains water,
+     * seagrass, and fireproof Nether plants.
+     */
+    private static final TagKey<Block> PLANTS = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Conflagration.MOD_ID, "plants"));
+
+    private static final AppliedValueTracker<Block, Odds> APPLIED_VALUES = new AppliedValueTracker<>();
+
+    /**
      * Tags that make up {@link FuelCategory#WOODEN_FEATURES}: the worked-wood blocks a building is
      * actually made of, as opposed to raw planks.
      */
@@ -46,7 +61,7 @@ public final class FlammabilityApplier {
             BlockTags.WOODEN_STAIRS,
             BlockTags.WOODEN_SLABS,
             BlockTags.WOODEN_FENCES,
-            BlockTags.FENCE_GATES,
+            Tags.Blocks.FENCE_GATES_WOODEN,
             BlockTags.WOODEN_DOORS,
             BlockTags.WOODEN_TRAPDOORS,
             BlockTags.WOODEN_BUTTONS,
@@ -60,20 +75,7 @@ public final class FlammabilityApplier {
      *
      * @return the number of blocks whose values were changed
      */
-    public static int apply(Logger log) {
-        if (!ConflagrationConfig.ENABLED.get()) {
-            log.info("[Conflagration] disabled by config; fire left as vanilla");
-            return 0;
-        }
-
-        FlammabilityPolicy policy = ConflagrationConfig.buildPolicy();
-        policy.warnings().forEach(warning -> log.warn("[Conflagration] {}", warning));
-
-        if (policy.isNoOp()) {
-            log.info("[Conflagration] preset is VANILLA with no overrides; nothing to change");
-            return 0;
-        }
-
+    public static synchronized int apply(Logger log) {
         FireBlock fire = fireBlock();
         if (fire == null) {
             log.error("[Conflagration] minecraft:fire is not a FireBlock - another mod has "
@@ -81,8 +83,24 @@ public final class FlammabilityApplier {
             return 0;
         }
 
+        int restored = restorePreviousValues(fire, log);
+
+        if (!ConflagrationConfig.ENABLED.get()) {
+            log.info("[Conflagration] disabled by config; restored {} previously managed blocks", restored);
+            return 0;
+        }
+
+        FlammabilityPolicy policy = ConflagrationConfig.buildPolicy();
+        policy.warnings().forEach(warning -> log.warn("[Conflagration] {}", warning));
+
+        if (policy.isNoOp()) {
+            log.info("[Conflagration] preset is VANILLA with no overrides; restored {} previously managed blocks", restored);
+            return 0;
+        }
+
         boolean verbose = ConflagrationConfig.LOG_APPLIED_VALUES.get();
         int changed = 0;
+        Set<String> unmatchedOverrides = new LinkedHashSet<>(policy.overrides().keySet());
 
         for (Block block : BuiltInRegistries.BLOCK) {
             Set<FuelCategory> categories = categorise(block.defaultBlockState());
@@ -94,13 +112,20 @@ public final class FlammabilityApplier {
             if (key == null) {
                 continue;
             }
+            unmatchedOverrides.remove(key.toString());
 
             Odds odds = policy.resolve(key.toString(), categories).orElse(null);
             if (odds == null) {
                 continue;
             }
 
+            if (block == Blocks.AIR) {
+                log.warn("[Conflagration] ignoring override for minecraft:air; FireBlock rejects it");
+                continue;
+            }
+
             // setFlammable(block, encouragement/ignite, flammability/burn)
+            APPLIED_VALUES.recordWrite(block, currentOdds(fire, block), odds);
             fire.setFlammable(block, odds.ignite(), odds.burn());
             changed++;
 
@@ -109,8 +134,31 @@ public final class FlammabilityApplier {
             }
         }
 
+        unmatchedOverrides.forEach(id ->
+                log.warn("[Conflagration] override targets unknown block {}; ignored", id));
+
         log.info("[Conflagration] preset {} applied to {} blocks", policy.preset(), changed);
         return changed;
+    }
+
+    /**
+     * Restores values from the preceding application. If another mod wrote a different value after
+     * us, that newer value becomes the baseline instead of being clobbered.
+     */
+    private static int restorePreviousValues(FireBlock fire, Logger log) {
+        return APPLIED_VALUES.restore(
+                block -> currentOdds(fire, block),
+                (block, odds) -> fire.setFlammable(block, odds.ignite(), odds.burn()),
+                (block, odds) -> {
+                    ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+                    log.debug("[Conflagration] {} changed after our last application; adopted {} as baseline", key, odds);
+                });
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Odds currentOdds(FireBlock fire, Block block) {
+        BlockState state = block.defaultBlockState();
+        return new Odds(fire.getIgniteOdds(state), fire.getBurnOdds(state));
     }
 
     /** Null when another mod has replaced {@code minecraft:fire} with something else. */
@@ -135,13 +183,15 @@ public final class FlammabilityApplier {
         if (state.is(BlockTags.BAMBOO_BLOCKS)) {
             categories.add(FuelCategory.BAMBOO);
         }
-        if (state.is(BlockTags.PLANKS)) {
+        if (state.is(BlockTags.PLANKS) && !isNonFlammableWood(state)) {
             categories.add(FuelCategory.PLANKS);
         }
-        for (TagKey<Block> tag : WOODEN_FEATURE_TAGS) {
-            if (state.is(tag)) {
-                categories.add(FuelCategory.WOODEN_FEATURES);
-                break;
+        if (!isNonFlammableWood(state)) {
+            for (TagKey<Block> tag : WOODEN_FEATURE_TAGS) {
+                if (state.is(tag)) {
+                    categories.add(FuelCategory.WOODEN_FEATURES);
+                    break;
+                }
             }
         }
         if (state.is(BlockTags.LEAVES)) {
@@ -156,7 +206,7 @@ public final class FlammabilityApplier {
         if (state.is(BlockTags.SAPLINGS)) {
             categories.add(FuelCategory.SAPLINGS);
         }
-        if (state.is(BlockTags.FLOWERS) || state.is(BlockTags.REPLACEABLE_BY_TREES)) {
+        if (state.is(PLANTS)) {
             categories.add(FuelCategory.PLANTS);
         }
         if (state.is(BlockTags.CROPS)) {
@@ -164,6 +214,10 @@ public final class FlammabilityApplier {
         }
 
         return categories;
+    }
+
+    private static boolean isNonFlammableWood(BlockState state) {
+        return state.getBlock().asItem().getDefaultInstance().is(ItemTags.NON_FLAMMABLE_WOOD);
     }
 
     @SafeVarargs

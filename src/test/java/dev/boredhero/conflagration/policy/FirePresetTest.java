@@ -63,16 +63,17 @@ class FirePresetTest {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(FirePreset.class)
-    @DisplayName("presets get strictly more aggressive in declared order")
-    void presetsAreOrdered(FirePreset preset) {
-        if (preset == FirePreset.CUSTOM) {
-            return; // CUSTOM is a seed for user values, not a point on the intensity scale.
-        }
-        int logIgnite = preset.get(FuelCategory.LOGS).ignite();
-        assertTrue(logIgnite >= FirePreset.VANILLA.get(FuelCategory.LOGS).ignite());
-        assertTrue(logIgnite <= FirePreset.INFERNO.get(FuelCategory.LOGS).ignite());
+    @Test
+    @DisplayName("named presets strictly increase log ignition in intensity order")
+    void presetsAreOrdered() {
+        int vanilla = FirePreset.VANILLA.get(FuelCategory.LOGS).ignite();
+        int smouldering = FirePreset.SMOULDERING.get(FuelCategory.LOGS).ignite();
+        int aggressive = FirePreset.AGGRESSIVE.get(FuelCategory.LOGS).ignite();
+        int inferno = FirePreset.INFERNO.get(FuelCategory.LOGS).ignite();
+
+        assertTrue(vanilla < smouldering);
+        assertTrue(smouldering < aggressive);
+        assertTrue(aggressive < inferno);
     }
 
     @Test

@@ -27,6 +27,13 @@ repositories {
 
 neoForge {
     version = nfVersion
+    runs {
+        server {
+            server()
+            gameDirectory = project.file('run/server')
+            programArgument '--nogui'
+        }
+    }
     mods {
         "${project.mod_id}" {
             sourceSet sourceSets.main
@@ -70,6 +77,7 @@ tasks.withType(ProcessResources).configureEach {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
+    options.compilerArgs.add('-Xlint:deprecation')
 }
 
 jar {

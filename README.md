@@ -51,7 +51,7 @@ Two things people try before installing a mod, neither of which works:
 Drop the jar in your server's `mods/` folder. Done.
 
 Clients don't need it. The mod registers nothing client-side and declares
-`displayTest = "IGNORE_ALL_VERSION"`, so players connect with whatever they already have.
+`displayTest = "IGNORE_SERVER_VERSION"`, so players connect with whatever they already have.
 
 1.21.1 is the target I actually play on and the only version I'd call verified. CI also builds
 1.21.4 and 1.21.8; those jars compile and pass tests, but nobody has run them in a world. Mojang
@@ -80,7 +80,11 @@ Categories are tag-driven, so modded wood is picked up without me maintaining a 
 `CROPS`. A block matching several of them takes the first match in that order.
 
 Logs come from `#minecraft:logs_that_burn`, not `#minecraft:logs`. The latter drags in crimson and
-warped stems, which are meant to be fireproof.
+warped stems, which are meant to be fireproof. Planks and worked wood are also checked against
+`#minecraft:non_flammable_wood`, so their crimson and warped variants stay fireproof. Ground cover
+uses the narrower `#conflagration:plants` tag; using `#minecraft:replaceable_by_trees` here would
+accidentally classify water, seagrass, and Nether roots as fuel. Datapacks can extend the
+Conflagration tag for modded plants.
 
 Crops are inert in vanilla. `AGGRESSIVE` and `INFERNO` give them real values, which means wheat
 fields burn now. That's a genuine gameplay change and probably the first thing your players will
@@ -97,6 +101,31 @@ complain about.
 ```
 
 Malformed entries get a warning and are skipped. A typo here will never stop your server booting.
+Unknown block ids and the forbidden `minecraft:air` target are also warned and ignored. Values are
+accepted from 0 through 300; zero/zero makes a block inert.
+
+### Performance
+
+```toml
+[performance]
+    optimize_neighbour_scans = true
+    engine = "VANILLA"
+```
+
+Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
+reuses the first immutable position for the second lookup and reuses the read-only direction array.
+It changes no world reads, hook calls, scan order, random calls, or fire odds. Set it to `false` as
+a per-pack escape hatch; the mixin stays loaded but delegates every operation back to vanilla.
+
+`engine = "FRONTIER"` enables an experimental, behavior-changing spread engine. It discovers
+viable source/target edges occasionally, samples deterministic ignition-arrival times, deduplicates
+them by target, and processes them through a bounded primitive timing wheel. That trades vanilla's
+repeated 53-position scans for sparse scheduled work. It is not bit-for-bit vanilla and remains off
+by default. Exact, fail-closed adapters preserve FTB Chunks, Open Parties and Claims, and Flan claim
+checks. `AUTO_STRICT` falls back to `VANILLA` for an incompatible adapter version or a known
+unaudited claim/special-fire seam; every blocker is logged with mod name, id, version, reason, and
+the adapter needed for future support. See [`docs/FIRE_ENGINE.md`](docs/FIRE_ENGINE.md) for the
+algorithm, limits, research basis, compatibility matrix, and unsafe override.
 
 ### FTB Chunks
 
@@ -113,14 +142,20 @@ server without it, the option is ignored.
 
 ## Compatibility
 
-**No mixins.** `FireBlock#setFlammable` is public API in 1.21.1, so there's nothing here to clash
-with anything else at the bytecode level. That's not purity for its own sake: Supplementaries and
-The Bumblezone both mixin `FireBlock`'s `tick` / `checkBurnOut`, and both are mods you might
-plausibly have installed alongside this one.
+Flammability tuning still uses the public `FireBlock#setFlammable` API. The default performance
+layer uses three narrow, composable MixinExtras wrappers around allocations inside the private
+neighbour helper. It does not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any
+contextual NeoForge fire hook. The opt-in FRONTIER injection runs only after vanilla lifecycle and
+six face-sensitive burnout calls, then replaces the candidate loop under the compatibility policy
+above. This boundary was chosen around the actual mixins used by FTB Chunks, Open Parties and
+Claims, Flan, Supplementaries, and The Bumblezone. Known fire/performance mods are detected and
+reported at startup, and both optimizations have config escape hatches.
 
-Values are applied on `TagsUpdatedEvent`, so `/reload` re-applies them without a restart. The
-flammability table is global and rebuilt from scratch every launch, so pulling the mod out restores
-vanilla behaviour on the next boot with nothing left behind.
+Values are applied on the server side of `TagsUpdatedEvent`, so `/reload` re-applies them without a
+restart. Before reapplying, Conflagration restores every value it still owns. Disabling the mod,
+choosing `VANILLA`, adding a blacklist, removing an override, or removing a datapack tag therefore
+takes effect in the same process. A later write by another mod is preserved and adopted as the new
+baseline. Pulling Conflagration out still restores startup behavior on the next boot.
 
 If another mod also sets flammability for the same block, last write wins, and I can't tell you
 which of us that'll be. Set `log_applied_values = true` once and read the log. If something has
@@ -130,8 +165,10 @@ breaking that mod.
 ## Performance
 
 Fire is one of the heavier vanilla block ticks before you touch anything. From the decompiled
-1.21.1 sources: one fire block scans 53 candidate positions per tick, costing up to ~390
-`getBlockState` calls and ~380 short-lived allocations. It only ticks every 30-39 game ticks, so
+1.21.1 sources: one fire block scans 53 candidate positions per tick, costing up to 371
+`getBlockState` calls. The inner helper alone can allocate 636 relative positions and 53 cloned
+direction arrays. Conflagration removes half of those position allocations and all of those array
+clones without caching world state or bypassing mod hooks. Fire only ticks every 30-39 game ticks, so
 steady state lands around `active_fire_blocks × 11` block-state reads per tick.
 
 Higher flammability means more blocks alight at once, which means more of that. If you're running
@@ -142,8 +179,8 @@ guessing:
 /spark profiler start --only-ticks-over 100 --timeout 120
 ```
 
-Look for `FireBlock.tick` in the flame graph. Making that path cheaper would mean mixins, so if it
-ever ships it'll be opt-in and off by default.
+Look for `FireBlock.tick` in the flame graph. The transparent allocation optimization is enabled by
+default; behavior-changing load shedding is not part of it.
 
 ## Building
 
@@ -156,8 +193,10 @@ ever ships it'll be opt-in and off by default.
 Jars land in `build/libs/`.
 
 The `dev.boredhero.conflagration.policy` package has no Minecraft imports, deliberately. Preset
-tables, value clamping, config parsing and category precedence are plain Java, so all 53 tests run
-in seconds with no game harness. CI runs them across the version matrix on every PR.
+tables, value clamping, ownership restoration, config parsing and category precedence are plain
+Java, so the tests run in seconds with no game harness. CI runs them across the version matrix on
+every PR. Each jar now declares only its exact Minecraft and NeoForge patch line; mixin-enabled jars
+must not claim the old overlapping `[1.21.x,1.22)` ranges.
 
 `master` and `develop` are protected. Work on a branch and open a PR.
 

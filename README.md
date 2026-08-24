@@ -67,7 +67,7 @@ behaviour. On 1.21.1 itself `doFireTick` is the only fire gamerule that exists.
 
 | Preset | Log ignite | What happens |
 |---|---:|---|
-| `VANILLA` | 5 | Mojang's numbers. The mod effectively does nothing. |
+| `VANILLA` | 5 | Mojang's fuel numbers. Heat and independent destruction options still apply. |
 | `SMOULDERING` | 15 | Restrained. Buildings burn slowly and you can fight it. |
 | `AGGRESSIVE` *(default)* | 35 | A lit house burns down. Forest fires carry through trunks. |
 | `INFERNO` | 70 | Unreasonable on purpose. Fire crosses open ground. You will lose things. |
@@ -76,8 +76,8 @@ behaviour. On 1.21.1 itself `doFireTick` is the only fire gamerule that exists.
 ### Categories
 
 Categories are tag-driven, so modded wood is picked up without me maintaining a block list:
-`LOGS`, `BAMBOO`, `PLANKS`, `WOODEN_FEATURES`, `LEAVES`, `WOOL`, `CARPETS`, `SAPLINGS`, `PLANTS`,
-`CROPS`. A block matching several of them takes the first match in that order.
+`LOGS`, `BAMBOO`, `PLANKS`, `WOODEN_FEATURES`, `KINDLING`, `CHESTS`, `LEAVES`, `WOOL`, `CARPETS`,
+`SAPLINGS`, `PLANTS`, `CROPS`. A block matching several of them takes the first match in that order.
 
 Logs come from `#minecraft:logs_that_burn`, not `#minecraft:logs`. The latter drags in crimson and
 warped stems, which are meant to be fireproof. Planks and worked wood are also checked against
@@ -87,8 +87,19 @@ accidentally classify water, seagrass, and Nether roots as fuel. Datapacks can e
 Conflagration tag for modded plants.
 
 Crops are inert in vanilla. `AGGRESSIVE` and `INFERNO` give them real values, which means wheat
-fields burn now. That's a genuine gameplay change and probably the first thing your players will
-complain about.
+fields burn now. Crops consumed directly or through a support-block update never drop seeds or
+food.
+
+`KINDLING` is the datapack-extensible `#conflagration:kindling` tag. It contains vanilla ladders
+and torch variants. It is inert under `VANILLA`, but the other presets let nearby fire consume
+these attachments. Blocks removed directly by fire, plus door halves and attachments that lose
+their support during that same removal, do not drop items.
+
+Flowers use the standard `#minecraft:flowers` tag in addition to Conflagration's plant tag, so
+modded flowers burn too. Tall-flower halves and ordinary flowers are consumed without item drops.
+Wooden chests and trapped chests are fuel by default. Their inventories are destroyed with them;
+set `[destruction].destroy_chest_contents = false` to spill the contents, or
+`burn_chests = false` to leave chests alone entirely. Ender chests are never included.
 
 ### Per-block control
 
@@ -109,7 +120,12 @@ accepted from 0 through 300; zero/zero makes a block inert.
 ```toml
 [performance]
     optimize_neighbour_scans = true
-    engine = "VANILLA"
+    engine = "FRONTIER"
+    vanilla_spread_speed = 1.0
+    frontier_spread_speed = 2.0
+    frontier_ember_jump_distance = 2
+    frontier_ember_particles = true
+    frontier_max_particle_arcs_per_tick = 8
 ```
 
 Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
@@ -117,15 +133,89 @@ reuses the first immutable position for the second lookup and reuses the read-on
 It changes no world reads, hook calls, scan order, random calls, or fire odds. Set it to `false` as
 a per-pack escape hatch; the mixin stays loaded but delegates every operation back to vanilla.
 
-`engine = "FRONTIER"` enables an experimental, behavior-changing spread engine. It discovers
+`engine = "FRONTIER"` is the new-install default and enables an experimental, behavior-changing
+spread engine. It discovers
 viable source/target edges occasionally, samples deterministic ignition-arrival times, deduplicates
 them by target, and processes them through a bounded primitive timing wheel. That trades vanilla's
-repeated 53-position scans for sparse scheduled work. It is not bit-for-bit vanilla and remains off
-by default. Exact, fail-closed adapters preserve FTB Chunks, Open Parties and Claims, and Flan claim
+repeated 53-position scans for sparse scheduled work. It is not bit-for-bit vanilla. Exact,
+fail-closed adapters preserve FTB Chunks, Open Parties and Claims, and Flan claim
 checks. `AUTO_STRICT` falls back to `VANILLA` for an incompatible adapter version or a known
 unaudited claim/special-fire seam; every blocker is logged with mod name, id, version, reason, and
 the adapter needed for future support. See [`docs/FIRE_ENGINE.md`](docs/FIRE_ENGINE.md) for the
 algorithm, limits, research basis, compatibility matrix, and unsafe override.
+
+`frontier_spread_speed` is an arrival-rate multiplier used only by FRONTIER. `1.0` is the
+vanilla-speed baseline (FRONTIER still is not bit-for-bit vanilla); the default `2.0` halves the
+mean ignition delay and `4.0` quarters it while retaining the engine's exponential timing. It
+changes newly discovered arrivals, not events already waiting in the queue. The accepted range is
+`0.05`–`20.0`; queue and per-tick budgets remain hard safety limits at every speed.
+
+`vanilla_spread_speed` provides a narrower speedup for the stock algorithm. `1.0` is exact; higher
+values multiply only candidate ignition odds, leaving scheduled-tick cadence, burnout, random-call
+order, claim checks, and contextual mod hooks in place. `frontier_ember_jump_distance` controls
+FRONTIER's horizontal landing scan. Its default `2` lets embers find air beside wooden stairs,
+doors, and beds across short stone paths; the outer ring gets a distance-squared delay penalty.
+Set it to `1` for vanilla's local footprint.
+
+Successful outer-ring jumps draw a five-point `SMALL_FLAME` arc when
+`frontier_ember_particles = true`. These are vanilla particles, so unmodded clients remain
+compatible. The per-level, per-tick arc cap limits network and rendering work; skipped visuals do
+not change simulation results.
+
+### Radiant heat
+
+The default-on `[heat]` system gives dense fires consequences beyond direct contact. Active fires
+are kept in a primitive 4x4x4 spatial index. Nearby sources contribute inverse-square incident heat
+flux; dense cells smoothly raise each source's effective radiative power. Living entities build a
+time-dependent radiant dose above `2.5 kW/m^2`. Crossing the configured dose ignites them through
+vanilla's normal fire path, retaining Fire Resistance, immunity, rain/water extinguishing, and
+NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no query loads chunks.
+
+```toml
+[heat]
+    enabled = true
+    damage_entities = true
+    entity_heating_multiplier = 4.0 # 1.0 is the reference calibration
+    radius = 12.0
+    source_radiative_power_kw = 12.5
+    dense_fire_power_multiplier = 1.5
+    damage_threshold_kw_m2 = 2.5
+    damage_dose = 0.45 # 1.33 is the reference real-world pain dose
+    shatter_glass = true
+    glass_radius = 8
+    glass_heating_multiplier = 8.0
+    glass_break_delta_c = 60.0
+    max_glass_checks_per_tick = 256
+    max_tracked_fires = 100000
+    smoke_haze = true
+    smoke_blindness = true
+    smoke_threshold = 0.75
+    smoke_blindness_threshold = 5.0
+    max_smoke_particles_per_player = 12
+```
+
+Entity exposure defaults to a deliberate `4.0` gameplay multiplier. The inverse-square field and
+dose curve are unchanged, but players encounter the hazard farther from a burning structure;
+`1.0` restores the reference power calibration. The default `damage_dose = 0.45` also compresses
+harm into short Minecraft flame lifetimes; use `1.33` for the reference exposure dose. Roofed
+spaces multiply smoke exposure because smoke
+cannot disperse vertically. Exposed players receive bounded vanilla smoke particles once per
+second, and severe indoor smoke applies a short hidden Blindness effect that clears quickly in
+clean air. This remains entirely server-driven and requires no client mod.
+
+Ordinary glass blocks and panes accumulate a modeled center-to-edge thermal gradient and shatter
+with their normal break sound and particles at the threshold. `glass_heating_multiplier = 1.0`
+reproduces roughly three minutes at 5 kW/m² and 83 seconds at 9 kW/m². The default `8.0` deliberately
+compresses that real process into Minecraft time so windows in an involved village house generally
+fail in seconds rather than surviving the whole fire. `#conflagration:thermal_fracturable` is the allowlist and
+`#conflagration:thermal_fracture_immune` wins over it, so reinforced mod glass can opt out. Block
+entities are never shattered. A cancellable `ThermalFractureEvent` and the same exact claim
+adapters protect the mutation; under an unaudited claim/hybrid seam, fracture logs why it is off
+and fails closed while non-destructive heat stays active. See
+[`docs/HEAT_MODEL.md`](docs/HEAT_MODEL.md) for equations, calibration, limits, and sources.
+
+Use `/conflagration heat` in-game to inspect your current flux, equivalent radiant temperature,
+nearby indexed-fire count, accumulated dose, and whether solid geometry is shielding the sample.
 
 ### FTB Chunks
 
@@ -142,10 +232,14 @@ server without it, the option is ignored.
 
 ## Compatibility
 
-Flammability tuning still uses the public `FireBlock#setFlammable` API. The default performance
-layer uses three narrow, composable MixinExtras wrappers around allocations inside the private
-neighbour helper. It does not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any
-contextual NeoForge fire hook. The opt-in FRONTIER injection runs only after vanilla lifecycle and
+Flammability tuning still uses the public `FireBlock#setFlammable` API. Beds are intentionally
+included with the wool category, so village interiors are fuel rather than firebreaks. Wooden
+fences use the worked-wood category, including modded fences in the standard tag; vanilla's six
+face-sensitive burnout checks cover connected horizontal and vertical fence geometry before
+FRONTIER scans farther landing positions. The default performance layer uses three narrow,
+composable MixinExtras wrappers around allocations inside the private neighbour helper. It does
+not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any contextual NeoForge fire
+hook. The FRONTIER injection runs only after vanilla lifecycle and
 six face-sensitive burnout calls, then replaces the candidate loop under the compatibility policy
 above. This boundary was chosen around the actual mixins used by FTB Chunks, Open Parties and
 Claims, Flan, Supplementaries, and The Bumblezone. Known fire/performance mods are detected and
@@ -179,8 +273,9 @@ guessing:
 /spark profiler start --only-ticks-over 100 --timeout 120
 ```
 
-Look for `FireBlock.tick` in the flame graph. The transparent allocation optimization is enabled by
-default; behavior-changing load shedding is not part of it.
+Look for `FireBlock.tick` in the flame graph. The transparent allocation optimization and bounded
+FRONTIER engine are enabled by default on new configs. `engine = "VANILLA"` remains the exact
+compatibility escape hatch.
 
 ## Building
 

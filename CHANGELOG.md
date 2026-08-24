@@ -9,11 +9,26 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Allocation-safe fire neighbour scanning using composable MixinExtras wrappers, with a runtime
   config escape hatch and startup detection of known performance/fire mixin mods.
-- An opt-in experimental `FRONTIER` spread engine using deterministic arrival sampling, target
+- A default-on experimental `FRONTIER` spread engine using deterministic arrival sampling, target
   deduplication, primitive timing-wheel storage, per-level budgets, hard queue caps, and strict
   compatibility fallback with actionable per-mod blocker logs.
 - Fail-closed FRONTIER claim adapters for FTB Chunks, Open Parties and Claims, and Flan, plus
   explicit blockers for unaudited claim and hybrid-server fire seams.
+- A `frontier_spread_speed` hazard-rate multiplier that changes ignition speed without discarding
+  FRONTIER's exponential arrival behavior or bypassing its work limits.
+- Distance-penalized FRONTIER ember jumps across short non-flammable gaps, a composable VANILLA
+  ignition-speed multiplier, and explicit bed flammability through the wool fuel category.
+- Vanilla-client ember arcs for successful FRONTIER jumps, with a bounded per-level packet budget.
+- A datapack-extensible kindling category for ladders and torch variants.
+- A sparse radiant-heat field with inverse-square source aggregation, standards-shaped entity
+  exposure dose compressed for short Minecraft flame lifetimes, line-of-sight attenuation, and
+  vanilla fire-damage semantics.
+- Sustained thermal fracture for ordinary glass blocks and panes, including break sound/particles,
+  strict claim fallback, hard work budgets, datapack allow/immune tags, and a cancellable event.
+- Gameplay-scaled entity heat plus bounded, roof-sensitive vanilla smoke haze and severe indoor
+  vision loss, requiring no client mod.
+- Configurable wooden chest burning, default destructive inventory loss, and standard-tag flower
+  consumption without item drops.
 - A dedicated `#conflagration:plants` tag for safe datapack extension.
 
 ### Fixed
@@ -25,6 +40,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   static tag update events.
 - Allow meaningful NeoForge fire odds through 300 and narrow each built jar's declared game/API
   version ranges to the patch line it was compiled against.
+- Consume doors, ladders, torches, and their synchronous support-loss counterparts without item
+  drops when fire removes them; mature crops likewise cannot drop food or seeds.
+- Make FRONTIER the new-install default while retaining VANILLA and strict automatic compatibility
+  fallback; correctly version-gate FTB Chunks fire ownership at 2101.1.15.
 
 ## [1.0.0] - 2026-08-23
 

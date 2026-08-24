@@ -1,5 +1,6 @@
 package dev.boredhero.conflagration.optimization;
 
+import dev.boredhero.conflagration.heat.FireHeatManager;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -83,7 +84,8 @@ public final class FrontierFireEngine {
                                    long target,
                                    int age,
                                    int odds,
-                                   int verticalOffset) {
+                                   int verticalOffset,
+                                   int horizontalOffset) {
         int score = (odds + 40 + level.getDifficulty().getId() * 7) / (age + 30);
         if (level.getBiome(BlockPos.of(source)).is(BiomeTags.INCREASED_FIRE_BURNOUT)) {
             score /= 2;
@@ -92,9 +94,13 @@ public final class FrontierFireEngine {
             return -1;
         }
 
-        int denominator = 100 + Math.max(0, verticalOffset - 1) * 100;
+        int jumpPenalty = horizontalOffset <= 1 ? 1 : horizontalOffset * horizontalOffset;
+        int denominator = (100 + Math.max(0, verticalOffset - 1) * 100) * jumpPenalty;
         double probability = Math.min(0.999, (score + 1.0) / denominator);
-        double meanTicks = 35.0 / probability;
+        // Scaling the hazard rate (rather than the sampled result or scan interval) retains the
+        // exponential arrival distribution: 2x speed means exactly half the mean waiting time.
+        double meanTicks = FrontierRate.meanDelayTicks(
+                probability, FirePerformance.frontierSpreadSpeed());
         long hash = mix64(level.getSeed() ^ source ^ Long.rotateLeft(target, 23));
         double unit = ((hash >>> 11) + 1.0) * 0x1.0p-53;
         int delay = (int) Math.ceil(-StrictMath.log(unit) * meanTicks);
@@ -108,6 +114,7 @@ public final class FrontierFireEngine {
         private long budgetTick = Long.MIN_VALUE;
         private int processedThisTick;
         private int sourcesThisTick;
+        private int particleArcsThisTick;
 
         LevelState(long now) {
             events = new FrontierEventWheel(now);
@@ -120,6 +127,7 @@ public final class FrontierFireEngine {
                 budgetTick = now;
                 processedThisTick = 0;
                 sourcesThisTick = 0;
+                particleArcsThisTick = 0;
             }
         }
 
@@ -148,8 +156,9 @@ public final class FrontierFireEngine {
 
             int age = fireState.getValue(FireBlock.AGE);
             BlockPos.MutableBlockPos target = new BlockPos.MutableBlockPos();
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
+            int jumpDistance = FirePerformance.frontierEmberJumpDistance();
+            for (int x = -jumpDistance; x <= jumpDistance; x++) {
+                for (int z = -jumpDistance; z <= jumpDistance; z++) {
                     for (int y = -1; y <= 4; y++) {
                         if (x == 0 && y == 0 && z == 0) {
                             continue;
@@ -166,7 +175,9 @@ public final class FrontierFireEngine {
                             continue;
                         }
                         long targetLong = target.asLong();
-                        int delay = sampleDelay(level, source, targetLong, age, odds, y);
+                        int horizontalOffset = Math.max(Math.abs(x), Math.abs(z));
+                        int delay = sampleDelay(
+                                level, source, targetLong, age, odds, y, horizontalOffset);
                         if (delay > 0) {
                             schedule(source, targetLong, age, now + delay);
                         }
@@ -215,6 +226,13 @@ public final class FrontierFireEngine {
             }
             if (level.setBlock(target, placed, 3)) {
                 nextSourceScan.remove(targetLong);
+                FireHeatManager.observe(level, target, placed);
+                if (EmberParticles.isJump(source, target)
+                        && FirePerformance.frontierEmberParticles()
+                        && particleArcsThisTick < FirePerformance.frontierMaxParticleArcsPerTick()) {
+                    particleArcsThisTick++;
+                    EmberParticles.sendJump(level, source, target);
+                }
             }
         }
     }

@@ -1,8 +1,9 @@
 # Experimental frontier fire engine
 
 `[performance].engine = "FRONTIER"` replaces only vanilla's repeated 53-position air spread loop.
-It is disabled by default. Fire lifecycle, survival, rain extinction, age, fire sources, scheduled
-ticks, and the six face-sensitive direct burnout checks still run in `FireBlock.tick`.
+It is enabled by default for new configurations. Fire lifecycle, survival, rain extinction, age,
+fire sources, scheduled ticks, and the six face-sensitive direct burnout checks still run in
+`FireBlock.tick`.
 
 ## Model
 
@@ -16,6 +17,30 @@ The delay distribution is derived from vanilla's ignite odds, age, difficulty, v
 and increased-burnout biome adjustment. It is statistically vanilla-shaped, not bit-for-bit
 vanilla. A positional hash based on the world seed and source/target positions makes results stable
 when queue budgets change; no shared world RNG is consumed.
+
+`frontier_spread_speed` multiplies the stochastic arrival rate. This is a hazard-rate control, not
+a scan-frequency shortcut: `1.0` is the vanilla-speed baseline, the default `2.0` gives half the
+mean wait, and `4.0` gives one quarter while keeping the same exponential distribution. FRONTIER
+itself remains statistically vanilla-shaped rather than bit-for-bit vanilla. The setting applies
+when an edge is discovered; already queued arrivals keep their sampled due time. Queue caps and
+per-tick work budgets still apply at every setting.
+
+`frontier_ember_jump_distance` expands the horizontal landing scan from vanilla's radius `1` to a
+default radius `2`. Only empty landing positions beside contextual fuel are eligible. Outer-ring
+arrivals receive a distance-squared probability penalty, are claim-checked at discovery and again
+at placement, and never load chunks. This permits occasional spotting across village paths and
+other short non-flammable gaps without turning solid masonry into fuel.
+
+After a successful outer-ring placement, FRONTIER can send a short five-point arc of vanilla
+`SMALL_FLAME` particles. Particles are never sent for local spread, failed/rejected arrivals, or
+events dropped by a work limit. `frontier_max_particle_arcs_per_tick` caps these best-effort
+visuals per level without affecting fire state. Built-in particles preserve the mod's server-only,
+unmodified-client contract; a bespoke registered particle would require a client-side provider and
+asset registration.
+
+VANILLA mode has a separate `vanilla_spread_speed` control. It scales the private helper's positive
+ignition-odds result while preserving zero/deny results, tick cadence, burnout calls, RNG order, and
+call-site claim wrappers. `1.0` is exact vanilla behavior.
 
 This is closer to a minimum-travel-time/event simulation than a synchronous cellular automaton:
 
@@ -36,6 +61,7 @@ This is closer to a minimum-travel-time/event simulation than a synchronous cell
 - primitive earliest-arrival map for target deduplication;
 - deterministic per-level event/source budgets;
 - hard pending-event cap;
+- a separate per-level particle-arc cap;
 - weak per-level ownership, and no chunk loads, asynchronous world access, or cross-tick
   `BlockState` cache.
 

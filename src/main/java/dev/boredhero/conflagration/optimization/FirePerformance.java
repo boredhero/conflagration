@@ -1,11 +1,13 @@
 package dev.boredhero.conflagration.optimization;
 
 import dev.boredhero.conflagration.config.ConflagrationConfig;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
 
-import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,8 +19,15 @@ public final class FirePerformance {
 
     // Safe until the common config is loaded. Refreshed on tag load and server start.
     private static volatile boolean optimizeNeighbourScans = true;
+    private static volatile boolean suppressFireDrops;
     private static volatile FireEngineMode requestedEngine = FireEngineMode.VANILLA;
+    private static volatile double vanillaSpreadSpeed = 1.0;
     private static volatile boolean frontierActive;
+    private static volatile boolean directBlockEffectsAllowed;
+    private static volatile double frontierSpreadSpeed = 1.0;
+    private static volatile int frontierEmberJumpDistance = 2;
+    private static volatile boolean frontierEmberParticles = true;
+    private static volatile int frontierMaxParticleArcsPerTick = 8;
     private static volatile int frontierRescanInterval = 200;
     private static volatile int frontierMaxEventsPerTick = 2048;
     private static volatile int frontierMaxSourcesPerTick = 256;
@@ -35,13 +44,22 @@ public final class FirePerformance {
         FireEngineMode previousEngine = requestedEngine;
         optimizeNeighbourScans = ConflagrationConfig.ENABLED.get()
                 && ConflagrationConfig.OPTIMIZE_NEIGHBOUR_SCANS.get();
+        suppressFireDrops = ConflagrationConfig.ENABLED.get();
         requestedEngine = ConflagrationConfig.ENABLED.get()
                 ? ConflagrationConfig.FIRE_ENGINE.get()
                 : FireEngineMode.VANILLA;
+        vanillaSpreadSpeed = ConflagrationConfig.ENABLED.get()
+                ? ConflagrationConfig.VANILLA_SPREAD_SPEED.get()
+                : 1.0;
         frontierRescanInterval = ConflagrationConfig.FRONTIER_RESCAN_INTERVAL.get();
         frontierMaxEventsPerTick = ConflagrationConfig.FRONTIER_MAX_EVENTS_PER_TICK.get();
         frontierMaxSourcesPerTick = ConflagrationConfig.FRONTIER_MAX_SOURCES_PER_TICK.get();
         frontierMaxPendingEvents = ConflagrationConfig.FRONTIER_MAX_PENDING_EVENTS.get();
+        frontierSpreadSpeed = ConflagrationConfig.FRONTIER_SPREAD_SPEED.get();
+        frontierEmberJumpDistance = ConflagrationConfig.FRONTIER_EMBER_JUMP_DISTANCE.get();
+        frontierEmberParticles = ConflagrationConfig.FRONTIER_EMBER_PARTICLES.get();
+        frontierMaxParticleArcsPerTick =
+                ConflagrationConfig.FRONTIER_MAX_PARTICLE_ARCS_PER_TICK.get();
         // Compatibility is resolved once the complete mod list is available at server start.
         // Preserve an already-resolved FRONTIER decision across datapack/tag reloads. A runtime
         // engine change still waits for the next server start so we never enable an unchecked path.
@@ -54,12 +72,44 @@ public final class FirePerformance {
         return optimizeNeighbourScans;
     }
 
+    public static boolean suppressFireDrops() {
+        return suppressFireDrops;
+    }
+
     public static boolean frontierActive() {
         return frontierActive;
     }
 
+    public static boolean directBlockEffectsAllowed() {
+        return directBlockEffectsAllowed;
+    }
+
+    public static boolean mayShatterGlass(ServerLevel level, BlockPos source, BlockPos target) {
+        return ClaimFireCompatibility.mayShatterGlass(level, source, target);
+    }
+
+    public static double vanillaSpreadSpeed() {
+        return vanillaSpreadSpeed;
+    }
+
     public static int frontierRescanInterval() {
         return frontierRescanInterval;
+    }
+
+    public static double frontierSpreadSpeed() {
+        return frontierSpreadSpeed;
+    }
+
+    public static int frontierEmberJumpDistance() {
+        return frontierEmberJumpDistance;
+    }
+
+    public static boolean frontierEmberParticles() {
+        return frontierEmberParticles;
+    }
+
+    public static int frontierMaxParticleArcsPerTick() {
+        return frontierMaxParticleArcsPerTick;
     }
 
     public static int frontierMaxEventsPerTick() {
@@ -120,6 +170,7 @@ public final class FirePerformance {
         boolean forced = ConflagrationConfig.FRONTIER_COMPATIBILITY.get()
                 == FrontierCompatibilityMode.FORCE_UNSAFE;
         frontierActive = requestedEngine == FireEngineMode.FRONTIER && (!conflict || forced);
+        directBlockEffectsAllowed = !conflict || forced;
 
         if (requestedEngine == FireEngineMode.FRONTIER && conflict && !forced) {
             log.warn("[Conflagration] FRONTIER cannot start safely; falling back to VANILLA (AUTO_STRICT)");
@@ -130,6 +181,15 @@ public final class FirePerformance {
         }
         log.info("[Conflagration] fire spread engine: {}{}", frontierActive ? "FRONTIER" : "VANILLA",
                 requestedEngine == FireEngineMode.FRONTIER && !frontierActive ? " (fallback)" : "");
+        log.info("[Conflagration] spread rate: {}x ({})",
+                frontierActive ? frontierSpreadSpeed : vanillaSpreadSpeed,
+                frontierActive ? "FRONTIER hazard" : "VANILLA ignition odds");
+        if (frontierActive) {
+            log.info("[Conflagration] ember jumps: radius {}, particles {} (max {} arcs/level/tick)",
+                    frontierEmberJumpDistance,
+                    frontierEmberParticles ? "enabled" : "disabled",
+                    frontierMaxParticleArcsPerTick);
+        }
         log.info("[Conflagration] allocation-safe neighbour scan optimization: {}",
                 optimizeNeighbourScans ? "enabled" : "disabled");
     }
@@ -189,11 +249,25 @@ public final class FirePerformance {
 
     static void disableFrontierAtRuntime(String providerName, String providerId, Throwable throwable) {
         frontierActive = false;
+        directBlockEffectsAllowed = false;
         Logger log = runtimeLog;
         if (log != null && RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
             log.error("[Conflagration] FRONTIER disabled at runtime: claim adapter {} {} [{}] failed "
                             + "during IGNITE_AIR with {}. This ignition was denied and subsequent fire ticks "
                             + "will use VANILLA. Please report this provider version.",
+                    providerName, modVersion(providerId), providerId, throwable.toString());
+        }
+    }
+
+    static void disableDirectBlockEffectsAtRuntime(String providerName,
+                                                   String providerId,
+                                                   Throwable throwable) {
+        directBlockEffectsAllowed = false;
+        Logger log = runtimeLog;
+        if (log != null && RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
+            log.error("[Conflagration] destructive thermal effects disabled at runtime: claim "
+                            + "adapter {} {} [{}] failed during GLASS_FRACTURE with {}. The current "
+                            + "fracture was denied; entity heat remains active.",
                     providerName, modVersion(providerId), providerId, throwable.toString());
         }
     }

@@ -2,14 +2,20 @@ package dev.boredhero.conflagration.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+import dev.boredhero.conflagration.heat.FireHeatManager;
+import dev.boredhero.conflagration.optimization.FireDestruction;
+import dev.boredhero.conflagration.optimization.FireDropSuppression;
 import dev.boredhero.conflagration.optimization.FirePerformance;
 import dev.boredhero.conflagration.optimization.FrontierFireEngine;
+import dev.boredhero.conflagration.optimization.VanillaRate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * object mutability are unchanged.
  *
  * <p>The default optimization intentionally does not inject at the helper head or alter
- * {@code tick}/{@code checkBurnOut}. The separate opt-in FRONTIER injection enters {@code tick}
+ * {@code tick}/{@code checkBurnOut}. The separate FRONTIER injection enters {@code tick}
  * only after lifecycle and direct burnout work. Open Parties and Claims cancels the helper at its
  * head, FTB Chunks and Supplementaries wrap its call site, and Bumblezone injects into burnout;
  * all of those seams stay intact in VANILLA mode.
@@ -41,8 +47,8 @@ abstract class FireBlockMixin {
 
     /**
      * Runs after vanilla lifecycle, age, rain, survival, and six direct burnout checks, immediately
-     * before its 53-candidate spread loop. Disabled by default; returning false leaves the loop and
-     * every other mod's injection point untouched.
+     * before its 53-candidate spread loop. Returning false leaves the loop and every other mod's
+     * injection point untouched.
      */
     @Inject(
             method = "tick",
@@ -53,8 +59,31 @@ abstract class FireBlockMixin {
                                            BlockPos position,
                                            RandomSource random,
                                            CallbackInfo callback) {
+        FireHeatManager.observe(level, position, state);
         if (FrontierFireEngine.tick(level, position, state)) {
             callback.cancel();
+        }
+    }
+
+    /** Keeps structural cleanup caused by a successful burnout inside a no-drop context. */
+    @WrapOperation(
+            method = "checkBurnOut",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/Level;removeBlock(Lnet/minecraft/core/BlockPos;Z)Z"))
+    private boolean conflagration$suppressFireRemovalDrops(Level level,
+                                                           BlockPos position,
+                                                           boolean moving,
+                                                           Operation<Boolean> original) {
+        if (!FirePerformance.suppressFireDrops()) {
+            return original.call(level, position, moving);
+        }
+        FireDropSuppression.enter();
+        try {
+            FireDestruction.beforeBurnout(level, position);
+            return original.call(level, position, moving);
+        } finally {
+            FireDropSuppression.exit();
         }
     }
 
@@ -63,6 +92,21 @@ abstract class FireBlockMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/core/Direction;values()[Lnet/minecraft/core/Direction;"))
     private Direction[] conflagration$reuseDirections(Operation<Direction[]> original) {
         return FirePerformance.optimizeNeighbourScans() ? CONFLAGRATION_DIRECTIONS : original.call();
+    }
+
+    /**
+     * Speeds vanilla's candidate ignition probability without changing tick cadence or replacing
+     * the helper. Claim mods that return zero remain zero, and call-site wrappers still run after
+     * this result is produced.
+     */
+    @ModifyReturnValue(
+            method = "getIgniteOdds(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)I",
+            at = @At("RETURN"))
+    private int conflagration$scaleVanillaIgnition(int original) {
+        if (FirePerformance.frontierActive()) {
+            return original;
+        }
+        return VanillaRate.scaleIgniteOdds(original, FirePerformance.vanillaSpreadSpeed());
     }
 
     @WrapOperation(

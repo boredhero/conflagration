@@ -38,6 +38,38 @@ visuals per level without affecting fire state. Built-in particles preserve the 
 unmodified-client contract; a bespoke registered particle would require a client-side provider and
 asset registration.
 
+## Fuel-aware outbreak radius
+
+The default `frontier_forest_radius_limit = true` carries a primitive origin id through queued and
+direct fire placements. Each origin deterministically chooses a nominal radius between
+`frontier_forest_min_radius_blocks` and `frontier_forest_max_radius_blocks` (60–256 by default).
+It then generates a rotated ellipse whose undistorted transform preserves nominal area, followed
+by a per-outbreak aspect ratio and 8–40% smooth multi-scale boundary distortion. Low-roughness
+outbreaks remain visibly elliptical;
+high-roughness outbreaks form lobes and squiggly outlines without high-frequency checkerboard
+edges. Equal minimum and maximum values produce a fixed nominal size while preserving shape
+variation.
+
+New untracked ignitions are compared with a bounded active-origin registry. If the prospective
+shape overlaps an existing outbreak, the new fire adopts the nearest existing origin and therefore
+shares its size and boundary. This coalescing runs only for new roots—not ordinary tracked fire
+ticks—and prevents nearby manual ignitions from stacking many independent allowances.
+Up to 4,096 active roots per dimension are saved atomically with level saves. Individual fire-to-
+origin entries can therefore expire while chunks are unloaded without losing the durable root:
+when a surviving fire resumes, overlap recovery reattaches it to the persisted outbreak.
+
+At the generated horizontal boundary, a cached 5x5x5 fuel sample classifies the advancing front.
+Only leaf/log-dominant fronts are stopped. Structural fuel adjacent to a target exempts that edge,
+allowing arbitrarily large buildings to burn; once the front returns to natural forest fuel outside
+the generated shape, suppression resumes. Classification work is paid only near/outside the
+boundary, cached per fixed 4x4x4 cell for 200 ticks, and fails closed at unloaded chunk edges.
+Per-fire ancestry entries are LRU-bounded and expire after 20 minutes without an active fire tick;
+the smaller persistent active-root registry remains available for overlap recovery.
+
+Direct `checkBurnOut` fire replacements use the same policy and preserve ancestry. Downward log
+removal can leave a successor flame above the next vertical log when `frontier_trunk_descent` is
+enabled, preventing a canopy fire from losing its path down the trunk.
+
 VANILLA mode has a separate `vanilla_spread_speed` control. It scales the private helper's positive
 ignition-odds result while preserving zero/deny results, tick cadence, burnout calls, RNG order, and
 call-site claim wrappers. `1.0` is exact vanilla behavior.

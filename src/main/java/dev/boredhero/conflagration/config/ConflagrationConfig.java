@@ -29,6 +29,10 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.BooleanValue BURN_CHESTS;
     public static final ModConfigSpec.BooleanValue DESTROY_CHEST_CONTENTS;
 
+    public static final ModConfigSpec.BooleanValue CAMPFIRE_SPARKS;
+    public static final ModConfigSpec.IntValue CAMPFIRE_SPARK_RADIUS;
+    public static final ModConfigSpec.DoubleValue CAMPFIRE_SPARK_CHANCE_PER_MINUTE;
+
     public static final ModConfigSpec.EnumValue<ClaimProtectionMode> CLAIM_FIRE_PROTECTION;
 
     public static final ModConfigSpec.BooleanValue OPTIMIZE_NEIGHBOUR_SCANS;
@@ -39,6 +43,10 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.IntValue FRONTIER_EMBER_JUMP_DISTANCE;
     public static final ModConfigSpec.BooleanValue FRONTIER_EMBER_PARTICLES;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_PARTICLE_ARCS_PER_TICK;
+    public static final ModConfigSpec.BooleanValue FRONTIER_FOREST_RADIUS_LIMIT;
+    public static final ModConfigSpec.IntValue FRONTIER_FOREST_MIN_RADIUS_BLOCKS;
+    public static final ModConfigSpec.IntValue FRONTIER_FOREST_MAX_RADIUS_BLOCKS;
+    public static final ModConfigSpec.BooleanValue FRONTIER_TRUNK_DESCENT;
     public static final ModConfigSpec.IntValue FRONTIER_RESCAN_INTERVAL;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_EVENTS_PER_TICK;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_SOURCES_PER_TICK;
@@ -58,6 +66,19 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.DoubleValue HEAT_GLASS_BREAK_DELTA;
     public static final ModConfigSpec.IntValue HEAT_MAX_GLASS_CHECKS_PER_TICK;
     public static final ModConfigSpec.IntValue HEAT_MAX_TRACKED_FIRES;
+    public static final ModConfigSpec.BooleanValue HEAT_SCORCH_GRASS;
+    public static final ModConfigSpec.BooleanValue HEAT_BAKE_FARMLAND;
+    public static final ModConfigSpec.BooleanValue HEAT_FUSE_SAND;
+    public static final ModConfigSpec.BooleanValue HEAT_FIRE_CLAY;
+    public static final ModConfigSpec.IntValue HEAT_SCORCH_GRASS_RADIUS;
+    public static final ModConfigSpec.DoubleValue HEAT_SCORCH_GRASS_THRESHOLD;
+    public static final ModConfigSpec.BooleanValue HEAT_MELT_SURFACE_STONE;
+    public static final ModConfigSpec.IntValue HEAT_MELT_SURFACE_STONE_RADIUS;
+    public static final ModConfigSpec.DoubleValue HEAT_MELT_SURFACE_STONE_THRESHOLD;
+    public static final ModConfigSpec.BooleanValue HEAT_COOL_MAGMA;
+    public static final ModConfigSpec.IntValue HEAT_MAGMA_COOLING_DELAY_SECONDS;
+    public static final ModConfigSpec.IntValue HEAT_MAGMA_COOLING_SPREAD_SECONDS;
+    public static final ModConfigSpec.DoubleValue HEAT_MAGMA_COOLING_THRESHOLD;
     public static final ModConfigSpec.BooleanValue HEAT_SMOKE;
     public static final ModConfigSpec.BooleanValue HEAT_SMOKE_BLINDNESS;
     public static final ModConfigSpec.DoubleValue HEAT_SMOKE_THRESHOLD;
@@ -106,6 +127,24 @@ public final class ConflagrationConfig {
                         "Log every block whose flammability was changed, at server start.",
                         "Useful once to see what a preset actually did; noisy afterwards.")
                 .define("log_applied_values", false);
+
+        builder.pop();
+
+        builder.comment("Rare server-side ignition from lit campfire sparks.").push("campfire");
+
+        CAMPFIRE_SPARKS = builder
+                .comment("Allow lit campfires to very rarely ignite nearby flammable blocks.")
+                .define("sparks_can_ignite", true);
+
+        CAMPFIRE_SPARK_RADIUS = builder
+                .comment("Maximum block radius searched for a valid campfire spark landing.")
+                .defineInRange("spark_radius", 6, 2, 16);
+
+        CAMPFIRE_SPARK_CHANCE_PER_MINUTE = builder
+                .comment("Chance per lit campfire per real-time minute to attempt ignition.",
+                        "0.0002 averages one attempt per 83 hours of continuous burning, before",
+                        "checking for valid nearby fuel. Set 0 to prevent spark ignition.")
+                .defineInRange("spark_chance_per_minute", 0.0002, 0.0, 1.0);
 
         builder.pop();
 
@@ -244,6 +283,28 @@ public final class ConflagrationConfig {
                         "dropped without delaying or changing fire simulation.")
                 .defineInRange("frontier_max_particle_arcs_per_tick", 8, 0, 256);
 
+        FRONTIER_FOREST_RADIUS_LIMIT = builder
+                .comment("Limit the horizontal reach of leaf/log-dominant FRONTIER outbreaks.",
+                        "The heuristic exempts spread into planks, doors, stairs, slabs, fences,",
+                        "gates, trapdoors, wool, beds, and chests so large structures still burn.",
+                        "Disable this for uncapped forest fires. It does not alter VANILLA mode.")
+                .define("frontier_forest_radius_limit", true);
+
+        FRONTIER_FOREST_MIN_RADIUS_BLOCKS = builder
+                .comment("Floor for the random nominal horizontal reach of each forest outbreak.",
+                        "The undistorted ellipse preserves nominal area; boundary noise varies it.")
+                .defineInRange("frontier_forest_min_radius_blocks", 60, 16, 4096);
+
+        FRONTIER_FOREST_MAX_RADIUS_BLOCKS = builder
+                .comment("Ceiling for the random nominal horizontal reach of each forest outbreak.",
+                        "Set equal to the minimum for fixed-size (still irregular) outbreaks.")
+                .defineInRange("frontier_forest_max_radius_blocks", 256, 16, 4096);
+
+        FRONTIER_TRUNK_DESCENT = builder
+                .comment("Keep fire in the vacated block when it burns downward through a vertical",
+                        "burnable-log column. This prevents canopy fires leaving floating trunks.")
+                .define("frontier_trunk_descent", true);
+
         FRONTIER_RESCAN_INTERVAL = builder
                 .comment("Game ticks before FRONTIER re-discovers edges around the same source fire.",
                         "Higher values reduce scans; lower values react faster to changed neighbours.")
@@ -333,12 +394,70 @@ public final class ConflagrationConfig {
                 .defineInRange("glass_break_delta_c", 60.0, 10.0, 300.0);
 
         HEAT_MAX_GLASS_CHECKS_PER_TICK = builder
-                .comment("Hard per-level block-read budget for glass discovery and thermal updates.")
+                .comment("Legacy-named hard per-level candidate budget shared by glass fracture",
+                        "and all heat-driven terrain transformations.")
                 .defineInRange("max_glass_checks_per_tick", 256, 0, 16_384);
 
         HEAT_MAX_TRACKED_FIRES = builder
                 .comment("Hard per-level cap on fire positions retained by the heat index.")
                 .defineInRange("max_tracked_fires", 100_000, 256, 2_000_000);
+
+        HEAT_SCORCH_GRASS = builder
+                .comment("Convert grass blocks to dirt under sustained nearby fire heat.")
+                .define("scorch_grass_to_dirt", true);
+
+        HEAT_BAKE_FARMLAND = builder
+                .comment("Convert fire-heated farmland back to dirt.")
+                .define("bake_farmland_to_dirt", true);
+
+        HEAT_FUSE_SAND = builder
+                .comment("Convert fire-heated sand/red sand to sandstone/red sandstone.")
+                .define("fuse_sand_to_sandstone", true);
+
+        HEAT_FIRE_CLAY = builder
+                .comment("Convert fire-heated clay blocks to terracotta.")
+                .define("fire_clay_to_terracotta", true);
+
+        HEAT_SCORCH_GRASS_RADIUS = builder
+                .comment("Maximum loaded-world distance searched for heat-scorched grass.")
+                .defineInRange("scorch_grass_radius", 4, 1, 12);
+
+        HEAT_SCORCH_GRASS_THRESHOLD = builder
+                .comment("Effective incident heat flux required to turn grass into dirt, kW/m^2.",
+                        "This uses the entity gameplay multiplier so dense fires scorch farther.")
+                .defineInRange("scorch_grass_threshold_kw_m2", 1.0, 0.1, 50.0);
+
+        HEAT_MELT_SURFACE_STONE = builder
+                .comment("Convert exposed stone/cobblestone to magma under extreme nearby heat.",
+                        "Only a surface block with air or fire directly above can change, so the",
+                        "effect cannot tunnel downward through terrain.")
+                .define("melt_surface_stone_to_magma", true);
+
+        HEAT_MELT_SURFACE_STONE_RADIUS = builder
+                .comment("Maximum loaded-world distance searched for extreme surface melting.")
+                .defineInRange("melt_surface_stone_radius", 4, 1, 12);
+
+        HEAT_MELT_SURFACE_STONE_THRESHOLD = builder
+                .comment("Effective incident heat flux required for surface magma, kW/m^2.")
+                .defineInRange("melt_surface_stone_threshold_kw_m2", 25.0, 1.0, 200.0);
+
+        HEAT_COOL_MAGMA = builder
+                .comment("Gradually return magma created by Conflagration to ordinary stone after",
+                        "the surrounding fire has cooled. Natural magma is never tracked or changed.")
+                .define("cool_generated_magma_to_stone", true);
+
+        HEAT_MAGMA_COOLING_DELAY_SECONDS = builder
+                .comment("Minimum cool-down delay for generated magma, in real-time seconds.")
+                .defineInRange("magma_cooling_delay_seconds", 120, 10, 86_400);
+
+        HEAT_MAGMA_COOLING_SPREAD_SECONDS = builder
+                .comment("Additional deterministic per-block delay range. This makes magma patches",
+                        "turn to stone gradually instead of changing in one server tick.")
+                .defineInRange("magma_cooling_spread_seconds", 180, 0, 86_400);
+
+        HEAT_MAGMA_COOLING_THRESHOLD = builder
+                .comment("Cooling waits while effective incident heat remains above this value, kW/m^2.")
+                .defineInRange("magma_cooling_threshold_kw_m2", 1.0, 0.0, 50.0);
 
         HEAT_SMOKE = builder
                 .comment("Create server-driven smoke haze around exposed players.",

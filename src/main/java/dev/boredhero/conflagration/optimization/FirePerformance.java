@@ -18,22 +18,29 @@ public final class FirePerformance {
     private static final Map<String, String> KNOWN_MODS = knownMods();
 
     // Safe until the common config is loaded. Refreshed on tag load and server start.
+    private static volatile boolean enabled;
     private static volatile boolean optimizeNeighbourScans = true;
     private static volatile boolean suppressFireDrops;
     private static volatile FireEngineMode requestedEngine = FireEngineMode.VANILLA;
     private static volatile double vanillaSpreadSpeed = 1.0;
     private static volatile boolean frontierActive;
+    private static volatile boolean directIgnitionAllowed;
     private static volatile boolean directBlockEffectsAllowed;
     private static volatile double frontierSpreadSpeed = 1.0;
     private static volatile int frontierEmberJumpDistance = 2;
     private static volatile boolean frontierEmberParticles = true;
     private static volatile int frontierMaxParticleArcsPerTick = 8;
+    private static volatile boolean frontierForestRadiusLimit = true;
+    private static volatile int frontierForestMinRadiusBlocks = 60;
+    private static volatile int frontierForestMaxRadiusBlocks = 256;
+    private static volatile boolean frontierTrunkDescent = true;
     private static volatile int frontierRescanInterval = 200;
     private static volatile int frontierMaxEventsPerTick = 2048;
     private static volatile int frontierMaxSourcesPerTick = 256;
     private static volatile int frontierMaxPendingEvents = 100_000;
     private static volatile Logger runtimeLog;
-    private static final AtomicBoolean RUNTIME_FAILURE_LOGGED = new AtomicBoolean();
+    private static final AtomicBoolean FRONTIER_RUNTIME_FAILURE_LOGGED = new AtomicBoolean();
+    private static final AtomicBoolean DIRECT_EFFECT_RUNTIME_FAILURE_LOGGED = new AtomicBoolean();
 
     private static final Map<String, FrontierConflict> FRONTIER_CONFLICTS = frontierConflicts();
 
@@ -42,10 +49,11 @@ public final class FirePerformance {
 
     public static void refreshFromConfig() {
         FireEngineMode previousEngine = requestedEngine;
-        optimizeNeighbourScans = ConflagrationConfig.ENABLED.get()
+        enabled = ConflagrationConfig.ENABLED.get();
+        optimizeNeighbourScans = enabled
                 && ConflagrationConfig.OPTIMIZE_NEIGHBOUR_SCANS.get();
-        suppressFireDrops = ConflagrationConfig.ENABLED.get();
-        requestedEngine = ConflagrationConfig.ENABLED.get()
+        suppressFireDrops = enabled;
+        requestedEngine = enabled
                 ? ConflagrationConfig.FIRE_ENGINE.get()
                 : FireEngineMode.VANILLA;
         vanillaSpreadSpeed = ConflagrationConfig.ENABLED.get()
@@ -60,6 +68,14 @@ public final class FirePerformance {
         frontierEmberParticles = ConflagrationConfig.FRONTIER_EMBER_PARTICLES.get();
         frontierMaxParticleArcsPerTick =
                 ConflagrationConfig.FRONTIER_MAX_PARTICLE_ARCS_PER_TICK.get();
+        frontierForestRadiusLimit = ConflagrationConfig.FRONTIER_FOREST_RADIUS_LIMIT.get();
+        frontierForestMinRadiusBlocks = Math.min(
+                ConflagrationConfig.FRONTIER_FOREST_MIN_RADIUS_BLOCKS.get(),
+                ConflagrationConfig.FRONTIER_FOREST_MAX_RADIUS_BLOCKS.get());
+        frontierForestMaxRadiusBlocks = Math.max(
+                ConflagrationConfig.FRONTIER_FOREST_MIN_RADIUS_BLOCKS.get(),
+                ConflagrationConfig.FRONTIER_FOREST_MAX_RADIUS_BLOCKS.get());
+        frontierTrunkDescent = ConflagrationConfig.FRONTIER_TRUNK_DESCENT.get();
         // Compatibility is resolved once the complete mod list is available at server start.
         // Preserve an already-resolved FRONTIER decision across datapack/tag reloads. A runtime
         // engine change still waits for the next server start so we never enable an unchecked path.
@@ -70,6 +86,10 @@ public final class FirePerformance {
 
     public static boolean optimizeNeighbourScans() {
         return optimizeNeighbourScans;
+    }
+
+    public static boolean enabled() {
+        return enabled;
     }
 
     public static boolean suppressFireDrops() {
@@ -84,7 +104,17 @@ public final class FirePerformance {
         return directBlockEffectsAllowed;
     }
 
+    public static boolean directIgnitionAllowed() {
+        return directIgnitionAllowed;
+    }
+
     public static boolean mayShatterGlass(ServerLevel level, BlockPos source, BlockPos target) {
+        return ClaimFireCompatibility.mayShatterGlass(level, source, target);
+    }
+
+    public static boolean mayApplyThermalBlockEffect(ServerLevel level,
+                                                     BlockPos source,
+                                                     BlockPos target) {
         return ClaimFireCompatibility.mayShatterGlass(level, source, target);
     }
 
@@ -112,6 +142,22 @@ public final class FirePerformance {
         return frontierMaxParticleArcsPerTick;
     }
 
+    public static boolean frontierForestRadiusLimit() {
+        return frontierForestRadiusLimit;
+    }
+
+    public static int frontierForestMinRadiusBlocks() {
+        return frontierForestMinRadiusBlocks;
+    }
+
+    public static int frontierForestMaxRadiusBlocks() {
+        return frontierForestMaxRadiusBlocks;
+    }
+
+    public static boolean frontierTrunkDescent() {
+        return frontierTrunkDescent;
+    }
+
     public static int frontierMaxEventsPerTick() {
         return frontierMaxEventsPerTick;
     }
@@ -131,7 +177,8 @@ public final class FirePerformance {
      */
     public static void logCompatibility(Logger log) {
         runtimeLog = log;
-        RUNTIME_FAILURE_LOGGED.set(false);
+        FRONTIER_RUNTIME_FAILURE_LOGGED.set(false);
+        DIRECT_EFFECT_RUNTIME_FAILURE_LOGGED.set(false);
         StringBuilder detected = new StringBuilder();
         for (Map.Entry<String, String> entry : KNOWN_MODS.entrySet()) {
             if (ModList.get().isLoaded(entry.getKey())) {
@@ -166,11 +213,14 @@ public final class FirePerformance {
             }
         }
         blockers.addAll(ClaimFireCompatibility.initialize(log));
+        List<CompatibilityBlocker> directEffectBlockers =
+                ClaimFireCompatibility.directEffectBlockers();
         boolean conflict = !blockers.isEmpty();
         boolean forced = ConflagrationConfig.FRONTIER_COMPATIBILITY.get()
                 == FrontierCompatibilityMode.FORCE_UNSAFE;
         frontierActive = requestedEngine == FireEngineMode.FRONTIER && (!conflict || forced);
-        directBlockEffectsAllowed = !conflict || forced;
+        directIgnitionAllowed = !conflict || forced;
+        directBlockEffectsAllowed = directIgnitionAllowed && directEffectBlockers.isEmpty();
 
         if (requestedEngine == FireEngineMode.FRONTIER && conflict && !forced) {
             log.warn("[Conflagration] FRONTIER cannot start safely; falling back to VANILLA (AUTO_STRICT)");
@@ -178,7 +228,12 @@ public final class FirePerformance {
         } else if (frontierActive && conflict) {
             log.warn("[Conflagration] FRONTIER forced on despite a known conflict; claim or special-fire behavior may be bypassed");
             blockers.forEach(blocker -> logFrontierBlocker(log, blocker, true));
+        } else if (conflict) {
+            log.warn("[Conflagration] destructive thermal/campfire effects cannot start safely; "
+                    + "configured direct world effects are disabled");
+            blockers.forEach(blocker -> logDirectEffectBlocker(log, blocker));
         }
+        directEffectBlockers.forEach(blocker -> logDirectEffectBlocker(log, blocker));
         log.info("[Conflagration] fire spread engine: {}{}", frontierActive ? "FRONTIER" : "VANILLA",
                 requestedEngine == FireEngineMode.FRONTIER && !frontierActive ? " (fallback)" : "");
         log.info("[Conflagration] spread rate: {}x ({})",
@@ -189,6 +244,36 @@ public final class FirePerformance {
                     frontierEmberJumpDistance,
                     frontierEmberParticles ? "enabled" : "disabled",
                     frontierMaxParticleArcsPerTick);
+        }
+        if (frontierForestRadiusLimit) {
+            if (frontierActive) {
+                log.info("[Conflagration] forest outbreak radius: {}-{} nominal blocks "
+                                + "(irregular ellipse; leaf/log heuristic; structures exempt)",
+                        frontierForestMinRadiusBlocks, frontierForestMaxRadiusBlocks);
+            } else {
+                log.warn("[Conflagration] forest outbreak radius configured ON but inactive because "
+                        + "the active spread engine is VANILLA{}",
+                        requestedEngine == FireEngineMode.FRONTIER ? " (compatibility fallback)" : "");
+            }
+        } else {
+            log.info("[Conflagration] forest outbreak radius: disabled by config");
+        }
+        if (frontierActive) {
+            log.info("[Conflagration] downward trunk fire: {}",
+                    frontierTrunkDescent ? "enabled" : "disabled");
+        }
+        if (ConflagrationConfig.CAMPFIRE_SPARKS.get() && !directIgnitionAllowed) {
+            log.warn("[Conflagration] campfire spark ignition: configured ON but disabled because "
+                    + "an unaudited claim/fire provider blocks direct world effects");
+        } else {
+            log.info("[Conflagration] campfire spark ignition: {}{}",
+                    ConflagrationConfig.CAMPFIRE_SPARKS.get() ? "enabled" : "disabled",
+                    ConflagrationConfig.CAMPFIRE_SPARKS.get()
+                            ? " - chance "
+                                    + ConflagrationConfig.CAMPFIRE_SPARK_CHANCE_PER_MINUTE.get()
+                                    + " per minute, radius "
+                                    + ConflagrationConfig.CAMPFIRE_SPARK_RADIUS.get()
+                            : "");
         }
         log.info("[Conflagration] allocation-safe neighbour scan optimization: {}",
                 optimizeNeighbourScans ? "enabled" : "disabled");
@@ -235,6 +320,10 @@ public final class FirePerformance {
                 "Claim My Land",
                 "its placement event can cancel natural block placement beyond the named fire-spread helper",
                 "upstream canNaturalBlockPlace(level, source, target, state) API"));
+        conflicts.put("claim", new FrontierConflict(
+                "Claim",
+                "has no audited fire-spread or environmental block-effect hook",
+                "documented source-to-target fire and block-effect protection API"));
         conflicts.put("supplementaries", new FrontierConflict(
                 "Supplementaries",
                 "wraps vanilla ignition odds and fire placement for flammable liquids",
@@ -249,9 +338,10 @@ public final class FirePerformance {
 
     static void disableFrontierAtRuntime(String providerName, String providerId, Throwable throwable) {
         frontierActive = false;
+        directIgnitionAllowed = false;
         directBlockEffectsAllowed = false;
         Logger log = runtimeLog;
-        if (log != null && RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
+        if (log != null && FRONTIER_RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
             log.error("[Conflagration] FRONTIER disabled at runtime: claim adapter {} {} [{}] failed "
                             + "during IGNITE_AIR with {}. This ignition was denied and subsequent fire ticks "
                             + "will use VANILLA. Please report this provider version.",
@@ -264,10 +354,10 @@ public final class FirePerformance {
                                                    Throwable throwable) {
         directBlockEffectsAllowed = false;
         Logger log = runtimeLog;
-        if (log != null && RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
+        if (log != null && DIRECT_EFFECT_RUNTIME_FAILURE_LOGGED.compareAndSet(false, true)) {
             log.error("[Conflagration] destructive thermal effects disabled at runtime: claim "
-                            + "adapter {} {} [{}] failed during GLASS_FRACTURE with {}. The current "
-                            + "fracture was denied; entity heat remains active.",
+                            + "adapter {} {} [{}] failed during THERMAL_BLOCK_EFFECT with {}. The "
+                            + "current block mutation was denied; entity heat remains active.",
                     providerName, modVersion(providerId), providerId, throwable.toString());
         }
     }
@@ -278,6 +368,13 @@ public final class FirePerformance {
         String action = forced ? "FORCE_UNSAFE is bypassing this guard" : "VANILLA selected";
         log.warn("[Conflagration] FRONTIER blocker: {} {} [{}] - {}; {}. Future support needs: {}",
                 blocker.name(), blocker.version(), blocker.id(), blocker.reason(), action, blocker.adapterNeeded());
+    }
+
+    private static void logDirectEffectBlocker(Logger log, CompatibilityBlocker blocker) {
+        log.warn("[Conflagration] direct-effect blocker: {} {} [{}] - {}; campfire ignition and "
+                        + "thermal block mutation disabled. Future support needs: {}",
+                blocker.name(), blocker.version(), blocker.id(), blocker.reason(),
+                blocker.adapterNeeded());
     }
 
     private static String modDisplayName(String modId, String fallback) {

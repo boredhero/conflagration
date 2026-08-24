@@ -92,7 +92,7 @@ is intentionally cinematic. The default allowlist is `#c:glass_blocks/cheap` plu
 - primitive per-level source/cell maps; no per-fire entity AABB queries;
 - exact sources within four blocks, one aggregate per farther 4x4x4 cell;
 - staggered entity sampling and one line-of-sight ray only after a harmful broad-phase result;
-- rotating glass-cell scan with a default 256 block-read budget per level per tick;
+- one rotating thermal-cell scan with a default 256 block-read budget per level per tick;
 - a hard 100,000-source cap, 50-tick stale expiry, weak level ownership, and no chunk loads;
 - source/target claim checks and a public cancellable `ThermalFractureEvent` before destruction;
 - unaudited claim or hybrid-server seams disable glass fracture, not entity heat;
@@ -113,3 +113,29 @@ an indoor concentration factor. Severe indoor exposure refreshes a short, hidden
 effect instead of using Darkness's pulsing or Nausea. Both particle count and the two thresholds
 are bounded/configurable, and leaving the smoky area clears the effect within about two seconds.
 No custom packet, texture, or client-side mod is required.
+
+## Terrain response
+
+The thermal scan also supports default-on, cancellable terrain transformations. Grass and farmland
+become dirt, sand becomes sandstone, red sand becomes red sandstone, and clay becomes terracotta
+above `1.0 kW/m²` effective flux within a tightened four-block cap. Exposed stone or cobblestone
+above `25 kW/m²` effective flux becomes magma within four blocks. Stone must have air or fire
+directly above it; after conversion, the magma surface blocks access to deeper stone. These are
+cinematic gameplay thresholds rather than claims that ordinary building fires melt geological
+stone. `ThermalScorchEvent` and `ThermalMeltEvent` run after exact source revalidation and claim
+adapters.
+
+Terrain queries within six blocks use exact flame positions instead of the farther-field 4x4x4
+cell approximation, and a solid obstruction between the block surface and strongest flame rejects
+the change. A full-period permutation interleaves checks inside each thermal cell. Together these
+make scars follow the flame footprint instead of appearing as coarse rectangles.
+
+Only magma created by this thermal transformation enters the cooling queue. Once effective heat
+falls below `1.0 kW/m²`, each block waits a deterministic 120–300 seconds before returning to
+ordinary stone. The per-position delay makes a scar cool gradually instead of changing all at
+once. Work is capped at eight positions per level tick, unloaded chunks are deferred, and
+`ThermalCoolingEvent` plus the original source-to-target claim check run before restoration.
+Natural magma is never added to the queue or changed. Fire directly above a cooling generated
+magma block is extinguished in the same operation, rather than waiting for a later fire tick.
+Generated-magma identities and deadlines are saved atomically per dimension, so restart recovery
+does not require guessing from natural magma blocks.

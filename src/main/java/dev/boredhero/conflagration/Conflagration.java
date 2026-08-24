@@ -15,6 +15,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ public final class Conflagration {
         NeoForge.EVENT_BUS.addListener(Conflagration::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(Conflagration::onServerStarted);
         NeoForge.EVENT_BUS.addListener(Conflagration::onLevelTick);
+        NeoForge.EVENT_BUS.addListener(Conflagration::onLevelSave);
         NeoForge.EVENT_BUS.addListener(Conflagration::onEntityTick);
         NeoForge.EVENT_BUS.addListener(Conflagration::onRegisterCommands);
     }
@@ -76,6 +78,13 @@ public final class Conflagration {
     private static void onLevelTick(LevelTickEvent.Post event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
             FireHeatManager.tickLevel(level);
+        }
+    }
+
+    private static void onLevelSave(LevelEvent.Save event) {
+        if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+            dev.boredhero.conflagration.optimization.FrontierFireEngine.saveLevel(level);
+            FireHeatManager.saveLevel(level);
         }
     }
 

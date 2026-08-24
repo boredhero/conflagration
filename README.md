@@ -126,6 +126,10 @@ accepted from 0 through 300; zero/zero makes a block inert.
     frontier_ember_jump_distance = 2
     frontier_ember_particles = true
     frontier_max_particle_arcs_per_tick = 8
+    frontier_forest_radius_limit = true
+    frontier_forest_min_radius_blocks = 60
+    frontier_forest_max_radius_blocks = 256
+    frontier_trunk_descent = true
 ```
 
 Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
@@ -162,6 +166,47 @@ Successful outer-ring jumps draw a five-point `SMALL_FLAME` arc when
 compatible. The per-level, per-tick arc cap limits network and rendering work; skipped visuals do
 not change simulation results.
 
+The default forest safety rail follows each FRONTIER outbreak back to its ignition origin. Each
+origin deterministically selects a nominal radius between
+`frontier_forest_min_radius_blocks = 60` and `frontier_forest_max_radius_blocks = 256`, then builds
+a rotated ellipse whose undistorted transform preserves nominal area, with randomized 8–40%
+smooth boundary distortion. Some fires
+stay recognizably elliptical; others form broad lobes and distinctly squiggly perimeters. Set the
+minimum and maximum equal for fixed-size outbreaks that retain the irregular outline.
+
+Rapid nearby ignitions do not each receive another allowance. New roots are compared with a
+bounded registry of active outbreaks; overlapping shapes adopt the nearest existing origin and
+share its boundary. This coalesces flint-and-steel spam and converging natural ignitions without a
+world scan. The bounded origin registry is saved per dimension, so restarting the server does not
+give a surviving edge fire a fresh radius.
+
+At that boundary, a cached 5x5x5 fuel sample must contain at least eight leaves, sixteen combined
+leaves/logs, and at least four times as much natural as structural fuel before spread is stopped.
+Planks, doors, stairs, slabs, fences, gates, trapdoors, wool, beds, and wooden chests exempt the
+current spread edge, so a large building still burns completely when a forest front reaches it.
+Returning to forest fuel outside the generated boundary activates the limit again. Set
+`frontier_forest_radius_limit = false` to remove it. VANILLA/compatibility fallback cannot enforce
+the limiter and logs that fact.
+
+`frontier_trunk_descent` keeps a flame in the vacated block when fire burns downward into a
+vertical burnable-log column. Canopy fires therefore consume trunks to their base instead of
+leaving floating lower segments; direct placements retain claim checks and outbreak ancestry.
+
+### Campfire sparks
+
+```toml
+[campfire]
+    sparks_can_ignite = true
+    spark_radius = 6
+    spark_chance_per_minute = 0.0002
+```
+
+A lit campfire checks once per minute without scanning the world. The default 0.02% chance
+averages one attempt per continuously lit campfire per roughly 83 hours, before sixteen
+loaded-chunk landing attempts look for nearby leaves or wooden fuel. Successful sparks use vanilla
+particles, respect claim adapters, and award a nearby player the one-time hidden advancement
+**Only You...**. Set the boolean false (or the chance to zero) to disable ignition.
+
 ### Radiant heat
 
 The default-on `[heat]` system gives dense fires consequences beyond direct contact. Active fires
@@ -187,6 +232,19 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
     glass_break_delta_c = 60.0
     max_glass_checks_per_tick = 256
     max_tracked_fires = 100000
+    scorch_grass_to_dirt = true
+    bake_farmland_to_dirt = true
+    fuse_sand_to_sandstone = true
+    fire_clay_to_terracotta = true
+    scorch_grass_radius = 4
+    scorch_grass_threshold_kw_m2 = 1.0
+    melt_surface_stone_to_magma = true
+    melt_surface_stone_radius = 4
+    melt_surface_stone_threshold_kw_m2 = 25.0
+    cool_generated_magma_to_stone = true
+    magma_cooling_delay_seconds = 120
+    magma_cooling_spread_seconds = 180
+    magma_cooling_threshold_kw_m2 = 1.0
     smoke_haze = true
     smoke_blindness = true
     smoke_threshold = 0.75
@@ -202,6 +260,12 @@ spaces multiply smoke exposure because smoke
 cannot disperse vertically. Exposed players receive bounded vanilla smoke particles once per
 second, and severe indoor smoke applies a short hidden Blindness effect that clears quickly in
 clean air. This remains entirely server-driven and requires no client mod.
+
+The same rotating, claim-aware thermal block budget scorches grass blocks into dirt and, only at
+extreme effective flux, converts exposed stone/cobblestone to magma. Surface melting requires air
+or fire directly above the target; the resulting magma covers the next layer, preventing downward
+tunnelling. Both effects are default-on but independently configurable and post cancellable
+`ThermalScorchEvent` / `ThermalMeltEvent` hooks before changing terrain.
 
 Ordinary glass blocks and panes accumulate a modeled center-to-edge thermal gradient and shatter
 with their normal break sound and particles at the threshold. `glass_heating_multiplier = 1.0`

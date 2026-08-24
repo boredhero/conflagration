@@ -61,7 +61,7 @@ public enum FirePreset {
             new Odds(70, 30),
             new Odds(60, 100),
             new Odds(70, 100),
-            new Odds(40, 60)),
+            new Odds(40, 60))),
 
     /**
      * Deliberately unreasonable. Nearly everything combustible catches, and fire crosses open

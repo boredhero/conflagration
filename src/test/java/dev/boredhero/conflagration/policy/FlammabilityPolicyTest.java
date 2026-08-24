@@ -77,7 +77,7 @@ class FlammabilityPolicyTest {
     }
 
     @Test
-    @DisplayName("ids are matched case-insensitively and namespace-insensitively")
+    @DisplayName("ids are normalized for case and an omitted minecraft namespace")
     void normalisesIdsOnLookup() {
         FlammabilityPolicy policy = FlammabilityPolicy.builder(FirePreset.AGGRESSIVE)
                 .overrides(List.of("oak_log=99,1"))
@@ -123,5 +123,17 @@ class FlammabilityPolicyTest {
                 .overrides(List.of("minecraft:stone=50,50"))
                 .build().isNoOp());
         assertFalse(FlammabilityPolicy.builder(FirePreset.AGGRESSIVE).build().isNoOp());
+    }
+
+    @Test
+    @DisplayName("VANILLA plus an override leaves every other category alone")
+    void vanillaWithOverrideOnlyTouchesOverride() {
+        FlammabilityPolicy policy = FlammabilityPolicy.builder(FirePreset.VANILLA)
+                .overrides(List.of("minecraft:oak_log=99,1"))
+                .build();
+
+        assertEquals(Optional.of(new Odds(99, 1)),
+                policy.resolve("minecraft:oak_log", of(FuelCategory.LOGS)));
+        assertTrue(policy.resolve("minecraft:birch_log", of(FuelCategory.LOGS)).isEmpty());
     }
 }

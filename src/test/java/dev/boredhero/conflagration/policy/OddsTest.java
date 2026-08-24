@@ -16,11 +16,12 @@ class OddsTest {
             "  0,   0,   0,   0",
             " 50,  50,  50,  50",
             "100, 100, 100, 100",
-            "101, 200, 100, 100",
+            "101, 200, 101, 200",
+            "301, 500, 300, 300",
             " -1,  -5,   0,   0",
             "  5,  20,   5,  20",
     })
-    @DisplayName("values are clamped into [0,100]")
+    @DisplayName("values are clamped into [0,300]")
     void clampsOutOfRangeValues(int ignite, int burn, int expectedIgnite, int expectedBurn) {
         Odds odds = new Odds(ignite, burn);
         assertEquals(expectedIgnite, odds.ignite());

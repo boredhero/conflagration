@@ -2,6 +2,8 @@ package dev.boredhero.conflagration.policy;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,9 +37,9 @@ public final class FlammabilityPolicy {
                                Set<String> blacklist,
                                List<String> warnings) {
         this.preset = preset;
-        this.categoryOdds = categoryOdds;
-        this.overrides = overrides;
-        this.blacklist = blacklist;
+        this.categoryOdds = Collections.unmodifiableMap(new EnumMap<>(categoryOdds));
+        this.overrides = Collections.unmodifiableMap(new LinkedHashMap<>(overrides));
+        this.blacklist = Collections.unmodifiableSet(new LinkedHashSet<>(blacklist));
         this.warnings = List.copyOf(warnings);
     }
 
@@ -60,6 +62,13 @@ public final class FlammabilityPolicy {
         Odds override = overrides.get(id);
         if (override != null) {
             return Optional.of(override);
+        }
+
+        // VANILLA means leave the table we inherited from Minecraft and other mods alone. This is
+        // especially important when VANILLA is combined with one explicit override: applying our
+        // coarse vanilla category table to every tagged mod block would not be a no-op.
+        if (preset.isVanilla()) {
+            return Optional.empty();
         }
 
         // Enum declaration order is precedence; iterate the enum rather than the argument so

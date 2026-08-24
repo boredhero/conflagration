@@ -49,7 +49,7 @@ class BlockOverrideTest {
     @DisplayName("out of range values are clamped rather than rejected")
     void clampsRatherThanRejects() {
         BlockOverride override = BlockOverride.parse("minecraft:oak_log=500,-3").value().orElseThrow();
-        assertEquals(new Odds(100, 0), override.odds());
+        assertEquals(new Odds(300, 0), override.odds());
     }
 
     @ParameterizedTest(name = "rejects \"{0}\"")

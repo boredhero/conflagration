@@ -19,6 +19,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Distance-penalized FRONTIER ember jumps across short non-flammable gaps, a composable VANILLA
   ignition-speed multiplier, and explicit bed flammability through the wool fuel category.
 - Vanilla-client ember arcs for successful FRONTIER jumps, with a bounded per-level packet budget.
+- A default fuel-aware forest outbreak boundary with a deterministic random 60–256 block nominal
+  radius and per-outbreak elliptical-to-squiggly geometry. Overlapping ignitions coalesce onto a
+  bounded persistent origin, structural spread edges remain exempt, and explicit downward trunk-
+  fire propagation lets canopy fires consume vertical log columns.
+- Extremely rare claim-aware campfire sparks and the one-time hidden **Only You...** advancement.
 - A datapack-extensible kindling category for ladders and torch variants.
 - A sparse radiant-heat field with inverse-square source aggregation, standards-shaped entity
   exposure dose compressed for short Minecraft flame lifetimes, line-of-sight attenuation, and
@@ -27,6 +32,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   strict claim fallback, hard work budgets, datapack allow/immune tags, and a cancellable event.
 - Gameplay-scaled entity heat plus bounded, roof-sensitive vanilla smoke haze and severe indoor
   vision loss, requiring no client mod.
+- Default-on, flame-hugging heat transformations for grass/farmland, sand, clay, and high-tier
+  exposed stone/cobblestone, using exact near-field sources, obstruction checks, an interleaved
+  bounded scan, and cancellable compatibility events. Generated magma gradually cools back to
+  stone after the fire subsides.
 - Configurable wooden chest burning, default destructive inventory loss, and standard-tag flower
   consumption without item drops.
 - A dedicated `#conflagration:plants` tag for safe datapack extension.

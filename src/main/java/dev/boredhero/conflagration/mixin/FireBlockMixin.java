@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Share;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import dev.boredhero.conflagration.heat.FireHeatManager;
 import dev.boredhero.conflagration.optimization.FireDestruction;
@@ -33,17 +34,42 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * exact same immutable object to the second call. Scan order, reads, hook calls, random calls, and
  * object mutability are unchanged.
  *
- * <p>The default optimization intentionally does not inject at the helper head or alter
- * {@code tick}/{@code checkBurnOut}. The separate FRONTIER injection enters {@code tick}
- * only after lifecycle and direct burnout work. Open Parties and Claims cancels the helper at its
- * head, FTB Chunks and Supplementaries wrap its call site, and Bumblezone injects into burnout;
- * all of those seams stay intact in VANILLA mode.
+ * <p>The default allocation optimization intentionally does not inject at the helper head or alter
+ * {@code tick}/{@code checkBurnOut}. FRONTIER additionally enters {@code tick} after lifecycle and
+ * direct burnout work, and wraps the two terminal burnout mutations for outbreak ancestry and
+ * downward trunk continuity. Open Parties and Claims cancels the helper at its head, FTB Chunks
+ * and Supplementaries wrap its call site, and Bumblezone injects into burnout; VANILLA mode still
+ * delegates behavior unchanged.
  */
 @Mixin(FireBlock.class)
 abstract class FireBlockMixin {
 
     @Unique
     private static final Direction[] CONFLAGRATION_DIRECTIONS = Direction.values();
+
+    /** Denies the whole direct-burn action before contextual onCaughtFire side effects run. */
+    @Inject(
+            method = "checkBurnOut",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/block/state/BlockState;onCaughtFire(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;Lnet/minecraft/world/entity/LivingEntity;)V"),
+            cancellable = true)
+    private void conflagration$guardDirectBurn(Level level,
+                                               BlockPos position,
+                                               int chance,
+                                               RandomSource random,
+                                               int age,
+                                               Direction face,
+                                               CallbackInfo callback) {
+        if (level instanceof ServerLevel serverLevel
+                && !FrontierFireEngine.mayPlaceDirect(
+                        serverLevel,
+                        position.relative(face),
+                        position,
+                        level.getBlockState(position))) {
+            callback.cancel();
+        }
+    }
 
     /**
      * Runs after vanilla lifecycle, age, rain, survival, and six direct burnout checks, immediately
@@ -74,17 +100,47 @@ abstract class FireBlockMixin {
     private boolean conflagration$suppressFireRemovalDrops(Level level,
                                                            BlockPos position,
                                                            boolean moving,
-                                                           Operation<Boolean> original) {
+                                                           Operation<Boolean> original,
+                                                           @Local(argsOnly = true) Direction face) {
+        BlockState removedState = level.getBlockState(position);
         if (!FirePerformance.suppressFireDrops()) {
             return original.call(level, position, moving);
         }
         FireDropSuppression.enter();
         try {
             FireDestruction.beforeBurnout(level, position);
-            return original.call(level, position, moving);
+            boolean removed = original.call(level, position, moving);
+            if (removed && face == Direction.UP && level instanceof ServerLevel serverLevel) {
+                FrontierFireEngine.placeTrunkDescent(
+                        serverLevel, position.relative(face), position, removedState);
+            }
+            return removed;
         } finally {
             FireDropSuppression.exit();
         }
+    }
+
+    /** Applies the outbreak boundary and preserves ancestry on direct fuel-to-fire replacement. */
+    @WrapOperation(
+            method = "checkBurnOut",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
+    private boolean conflagration$guardDirectFirePlacement(Level level,
+                                                           BlockPos position,
+                                                           BlockState newState,
+                                                           int flags,
+                                                           Operation<Boolean> original,
+                                                           @Local(argsOnly = true) Direction face) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return original.call(level, position, newState, flags);
+        }
+        BlockPos source = position.relative(face);
+        boolean placed = original.call(level, position, newState, flags);
+        if (placed) {
+            FrontierFireEngine.directPlaced(serverLevel, source, position);
+        }
+        return placed;
     }
 
     @WrapOperation(

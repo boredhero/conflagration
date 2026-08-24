@@ -30,6 +30,13 @@ arrivals receive a distance-squared probability penalty, are claim-checked at di
 at placement, and never load chunks. This permits occasional spotting across village paths and
 other short non-flammable gaps without turning solid masonry into fuel.
 
+After a successful outer-ring placement, FRONTIER can send a short five-point arc of vanilla
+`SMALL_FLAME` particles. Particles are never sent for local spread, failed/rejected arrivals, or
+events dropped by a work limit. `frontier_max_particle_arcs_per_tick` caps these best-effort
+visuals per level without affecting fire state. Built-in particles preserve the mod's server-only,
+unmodified-client contract; a bespoke registered particle would require a client-side provider and
+asset registration.
+
 VANILLA mode has a separate `vanilla_spread_speed` control. It scales the private helper's positive
 ignition-odds result while preserving zero/deny results, tick cadence, burnout calls, RNG order, and
 call-site claim wrappers. `1.0` is exact vanilla behavior.
@@ -53,6 +60,7 @@ This is closer to a minimum-travel-time/event simulation than a synchronous cell
 - primitive earliest-arrival map for target deduplication;
 - deterministic per-level event/source budgets;
 - hard pending-event cap;
+- a separate per-level particle-arc cap;
 - weak per-level ownership, and no chunk loads, asynchronous world access, or cross-tick
   `BlockState` cache.
 

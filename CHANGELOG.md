@@ -18,6 +18,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   FRONTIER's exponential arrival behavior or bypassing its work limits.
 - Distance-penalized FRONTIER ember jumps across short non-flammable gaps, a composable VANILLA
   ignition-speed multiplier, and explicit bed flammability through the wool fuel category.
+- Vanilla-client ember arcs for successful FRONTIER jumps, with a bounded per-level packet budget.
+- A datapack-extensible kindling category for ladders and torch variants.
 - A dedicated `#conflagration:plants` tag for safe datapack extension.
 
 ### Fixed
@@ -29,6 +31,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   static tag update events.
 - Allow meaningful NeoForge fire odds through 300 and narrow each built jar's declared game/API
   version ranges to the patch line it was compiled against.
+- Consume doors, ladders, torches, and their synchronous support-loss counterparts without item
+  drops when fire removes them.
 
 ## [1.0.0] - 2026-08-23
 

@@ -29,6 +29,9 @@ public enum FuelCategory {
     /** Stairs, slabs, fences, gates, doors, trapdoors, buttons and pressure plates made of wood. */
     WOODEN_FEATURES,
 
+    /** Small wooden attachments such as torches and ladders, consumed quickly and without drops. */
+    KINDLING,
+
     /** Leaves. Already quite flammable in vanilla (30/60). */
     LEAVES,
 

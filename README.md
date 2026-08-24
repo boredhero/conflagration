@@ -76,8 +76,8 @@ behaviour. On 1.21.1 itself `doFireTick` is the only fire gamerule that exists.
 ### Categories
 
 Categories are tag-driven, so modded wood is picked up without me maintaining a block list:
-`LOGS`, `BAMBOO`, `PLANKS`, `WOODEN_FEATURES`, `LEAVES`, `WOOL`, `CARPETS`, `SAPLINGS`, `PLANTS`,
-`CROPS`. A block matching several of them takes the first match in that order.
+`LOGS`, `BAMBOO`, `PLANKS`, `WOODEN_FEATURES`, `KINDLING`, `LEAVES`, `WOOL`, `CARPETS`, `SAPLINGS`,
+`PLANTS`, `CROPS`. A block matching several of them takes the first match in that order.
 
 Logs come from `#minecraft:logs_that_burn`, not `#minecraft:logs`. The latter drags in crimson and
 warped stems, which are meant to be fireproof. Planks and worked wood are also checked against
@@ -89,6 +89,11 @@ Conflagration tag for modded plants.
 Crops are inert in vanilla. `AGGRESSIVE` and `INFERNO` give them real values, which means wheat
 fields burn now. That's a genuine gameplay change and probably the first thing your players will
 complain about.
+
+`KINDLING` is the datapack-extensible `#conflagration:kindling` tag. It contains vanilla ladders
+and torch variants. It is inert under `VANILLA`, but the other presets let nearby fire consume
+these attachments. Blocks removed directly by fire, plus door halves and attachments that lose
+their support during that same removal, do not drop items.
 
 ### Per-block control
 
@@ -113,6 +118,8 @@ accepted from 0 through 300; zero/zero makes a block inert.
     vanilla_spread_speed = 1.0
     frontier_spread_speed = 2.0
     frontier_ember_jump_distance = 2
+    frontier_ember_particles = true
+    frontier_max_particle_arcs_per_tick = 8
 ```
 
 Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
@@ -143,6 +150,11 @@ FRONTIER's horizontal landing scan. Its default `2` lets embers find air beside 
 doors, and beds across short stone paths; the outer ring gets a distance-squared delay penalty.
 Set it to `1` for vanilla's local footprint.
 
+Successful outer-ring jumps draw a five-point `SMALL_FLAME` arc when
+`frontier_ember_particles = true`. These are vanilla particles, so unmodded clients remain
+compatible. The per-level, per-tick arc cap limits network and rendering work; skipped visuals do
+not change simulation results.
+
 ### FTB Chunks
 
 ```toml
@@ -159,10 +171,13 @@ server without it, the option is ignored.
 ## Compatibility
 
 Flammability tuning still uses the public `FireBlock#setFlammable` API. Beds are intentionally
-included with the wool category, so village interiors are fuel rather than firebreaks. The default
-performance layer uses three narrow, composable MixinExtras wrappers around allocations inside the private
-neighbour helper. It does not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any
-contextual NeoForge fire hook. The opt-in FRONTIER injection runs only after vanilla lifecycle and
+included with the wool category, so village interiors are fuel rather than firebreaks. Wooden
+fences use the worked-wood category, including modded fences in the standard tag; vanilla's six
+face-sensitive burnout checks cover connected horizontal and vertical fence geometry before
+FRONTIER scans farther landing positions. The default performance layer uses three narrow,
+composable MixinExtras wrappers around allocations inside the private neighbour helper. It does
+not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any contextual NeoForge fire
+hook. The opt-in FRONTIER injection runs only after vanilla lifecycle and
 six face-sensitive burnout calls, then replaces the candidate loop under the compatibility policy
 above. This boundary was chosen around the actual mixins used by FTB Chunks, Open Parties and
 Claims, Flan, Supplementaries, and The Bumblezone. Known fire/performance mods are detected and

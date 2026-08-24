@@ -281,9 +281,9 @@ public final class ConflagrationConfig {
 
         HEAT_ENTITY_HEATING_MULTIPLIER = builder
                 .comment("Gameplay multiplier for radiant exposure applied to entities.",
-                        "1.0 uses the reference calibration; the default 2.0 lets players feel",
+                        "1.0 uses the reference calibration; the default 4.0 lets players feel",
                         "a structure fire from farther away without changing the inverse-square model.")
-                .defineInRange("entity_heating_multiplier", 2.0, 0.1, 20.0);
+                .defineInRange("entity_heating_multiplier", 4.0, 0.1, 20.0);
 
         HEAT_RADIUS = builder
                 .comment("Maximum loaded-world radius, in blocks, used for entity heat queries.")
@@ -361,7 +361,7 @@ public final class ConflagrationConfig {
 
         HEAT_MAX_SMOKE_PARTICLES = builder
                 .comment("Maximum vanilla smoke particles emitted per exposed player per sample.",
-                        "Players are sampled twice per second; zero keeps vision effects but hides particles.")
+                        "Smoke is sampled once per second; zero keeps vision effects but hides particles.")
                 .defineInRange("max_smoke_particles_per_player", 12, 0, 128);
 
         builder.pop();

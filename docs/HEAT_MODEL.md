@@ -46,7 +46,7 @@ cools with a 10-second half-life below 1.7 kW/m²; this represents skin cooling,
 lost health. Animals use the same default because no defensible universal cross-species radiant
 threshold exists.
 
-The shipped `entity_heating_multiplier = 2.0` is an explicit gameplay calibration applied after
+The shipped `entity_heating_multiplier = 4.0` is an explicit gameplay calibration applied after
 the physical source field and before dose. It makes the effect noticeable around Minecraft's
 short-lived structure fires. Set it to `1.0` for the reference field described by the equation.
 

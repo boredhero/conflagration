@@ -279,16 +279,15 @@ public final class FireHeatManager {
             int entityId = living.getId();
             double priorDose = entityDoses.get(entityId);
             double elapsedSeconds = ENTITY_INTERVAL_TICKS / 20.0;
-            if (living.isInWaterOrRain() || living.hasEffect(MobEffects.FIRE_RESISTANCE)) {
-                storeCooledDose(entityId, priorDose, elapsedSeconds);
-                return;
-            }
-
             Vec3 samplePoint = living.getBoundingBox().getCenter();
             HeatSample sample = sampleAt(samplePoint.x, samplePoint.y, samplePoint.z, radius, now);
             exposeSmoke(level, living, sample.fluxKwM2() * entityHeatingMultiplier, now);
 
             if (!damageEntities) {
+                return;
+            }
+            if (living.isInWaterOrRain() || living.hasEffect(MobEffects.FIRE_RESISTANCE)) {
+                storeCooledDose(entityId, priorDose, elapsedSeconds);
                 return;
             }
 
@@ -374,7 +373,7 @@ public final class FireHeatManager {
                         return 0.0;
                     }
                     boolean sampleCovered = level.getHeight(
-                            Heightmap.Types.MOTION_BLOCKING, x, z) > eyes.getY() + 1;
+                            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) > eyes.getY() + 1;
                     if (sampleCovered) {
                         covered++;
                         centerCovered |= deltaX == 0 && deltaZ == 0;

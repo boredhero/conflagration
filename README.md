@@ -175,7 +175,7 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
 [heat]
     enabled = true
     damage_entities = true
-    entity_heating_multiplier = 2.0 # 1.0 is the reference calibration
+    entity_heating_multiplier = 4.0 # 1.0 is the reference calibration
     radius = 12.0
     source_radiative_power_kw = 12.5
     dense_fire_power_multiplier = 1.5
@@ -194,7 +194,7 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
     max_smoke_particles_per_player = 12
 ```
 
-Entity exposure defaults to a deliberate `2.0` gameplay multiplier. The inverse-square field and
+Entity exposure defaults to a deliberate `4.0` gameplay multiplier. The inverse-square field and
 dose curve are unchanged, but players encounter the hazard farther from a burning structure;
 `1.0` restores the reference calibration. Roofed spaces multiply smoke exposure because smoke
 cannot disperse vertically. Exposed players receive bounded vanilla smoke particles once per

@@ -55,9 +55,9 @@ Clients don't need it. The mod registers nothing client-side and declares
 
 1.21.1 is the target I actually play on and the only version I'd call verified. CI also builds
 1.21.4 and 1.21.8; those jars compile and pass tests, but nobody has run them in a world. Mojang
-kept moving fire around after 1.21.1 (`allowFireTicksAwayFromPlayer` in 1.21.5,
-`fire_spread_radius_around_player` replacing `doFireTick` in 1.21.11), so a clean compile there
-doesn't mean identical behaviour.
+kept moving fire's gamerules around in later versions, adding player-proximity controls and
+eventually retiring `doFireTick` altogether, so a clean compile there doesn't mean identical
+behaviour. On 1.21.1 itself `doFireTick` is the only fire gamerule that exists.
 
 ## Configuration
 

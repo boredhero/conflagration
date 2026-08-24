@@ -40,10 +40,10 @@ jobs:
             nf_range: '[21.8,21.9)'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -52,7 +52,7 @@ jobs:
       # Only branches we actually publish from are allowed to write the cache,
       # so a PR cannot poison it.
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/develop' }}
 
@@ -61,7 +61,7 @@ jobs:
       # build, and ~/.gradle caching does not cover it, so cache it separately
       # per Minecraft/NeoForge version.
       - name: Cache ModDevGradle artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/moddev
           key: moddev-${{ runner.os }}-${{ matrix.minecraft }}-${{ matrix.neoforge }}-${{ hashFiles('build.gradle', 'gradle.properties') }}
@@ -84,14 +84,14 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-report-${{ matrix.minecraft }}
           path: build/reports/tests/test/
           if-no-files-found: ignore
 
       - name: Upload jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: conflagration-${{ matrix.minecraft }}
           path: |
@@ -107,7 +107,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -118,7 +118,7 @@ jobs:
           ls -lh release
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: release/*.jar
           generate_release_notes: true

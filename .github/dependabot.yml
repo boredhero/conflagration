@@ -1,0 +1,47 @@
+version: 2
+
+updates:
+  # GitHub Actions used by the build/release workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "ci"
+    groups:
+      # One PR for all action bumps rather than five separate ones.
+      github-actions:
+        patterns: ['*']
+
+  # Gradle plugins and test dependencies.
+  #
+  # Note: NeoForge and Minecraft versions are NOT managed here. They live in
+  # the workflow matrix and gradle.properties as deliberate targets, and
+  # bumping them is a compatibility decision rather than a routine update.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      # Test libraries move together; a split JUnit BOM/artifact bump is a
+      # guaranteed broken build.
+      test-dependencies:
+        patterns:
+          - 'org.junit*'
+          - 'org.junit.jupiter:*'
+          - 'org.junit.platform:*'
+      # Everything else that is genuinely routine.
+      build-dependencies:
+        patterns: ['*']
+        exclude-patterns:
+          - 'org.junit*'
+          - 'net.neoforged*'
+    ignore:
+      # Pinned intentionally; see gradle.properties.
+      - dependency-name: 'net.neoforged:neoforge'

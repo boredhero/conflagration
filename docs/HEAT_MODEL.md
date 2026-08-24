@@ -119,7 +119,7 @@ No custom packet, texture, or client-side mod is required.
 The thermal scan also supports default-on, cancellable terrain transformations. Grass and farmland
 become dirt, sand becomes sandstone, red sand becomes red sandstone, and clay becomes terracotta
 above `1.0 kW/m²` effective flux within a tightened four-block cap. Exposed stone or cobblestone
-above `25 kW/m²` effective flux becomes magma within four blocks. Stone must have air or fire
+above `30 kW/m²` effective flux becomes magma within four blocks. Stone must have air or fire
 directly above it; after conversion, the magma surface blocks access to deeper stone. These are
 cinematic gameplay thresholds rather than claims that ordinary building fires melt geological
 stone. `ThermalScorchEvent` and `ThermalMeltEvent` run after exact source revalidation and claim

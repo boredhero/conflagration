@@ -16,13 +16,13 @@ package dev.boredhero.conflagration.policy;
  *
  * <p>For long, spreading fires that level a building you want <em>high ignite, moderate burn</em>.
  *
- * <p>Values are clamped to [{@value #MIN}, {@value #MAX}]. Vanilla never exceeds 100 and the
- * engine treats the numbers as relative weights, so larger values buy nothing but confusion.
+ * <p>Values are clamped to [{@value #MIN}, {@value #MAX}]. NeoForge documents burn odds up to
+ * 300, and values above vanilla's usual ceiling of 100 remain meaningful in the engine.
  */
 public record Odds(int ignite, int burn) {
 
     public static final int MIN = 0;
-    public static final int MAX = 100;
+    public static final int MAX = 300;
 
     /** Fully inert: never catches, never burns. */
     public static final Odds INERT = new Odds(0, 0);

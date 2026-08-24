@@ -6,6 +6,26 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Allocation-safe fire neighbour scanning using composable MixinExtras wrappers, with a runtime
+  config escape hatch and startup detection of known performance/fire mixin mods.
+- An opt-in experimental `FRONTIER` spread engine using deterministic arrival sampling, target
+  deduplication, primitive timing-wheel storage, per-level budgets, hard queue caps, and strict
+  compatibility fallback with actionable per-mod blocker logs.
+- Fail-closed FRONTIER claim adapters for FTB Chunks, Open Parties and Claims, and Flan, plus
+  explicit blockers for unaudited claim and hybrid-server fire seams.
+- A dedicated `#conflagration:plants` tag for safe datapack extension.
+
+### Fixed
+- Restore values owned by Conflagration when disabling it, selecting `VANILLA`, changing overrides
+  or blacklists, or reloading changed tags, without clobbering a later write from another mod.
+- Keep crimson/warped wood, water, aquatic plants, Nether roots, and chorus flowers fireproof.
+- Ignore and warn about unknown block overrides and the invalid `minecraft:air` target.
+- Apply FTB Chunks integration only while Conflagration is enabled and ignore duplicate client-side
+  static tag update events.
+- Allow meaningful NeoForge fire odds through 300 and narrow each built jar's declared game/API
+  version ranges to the patch line it was compiled against.
+
 ## [1.0.0] - 2026-08-23
 
 ### Added

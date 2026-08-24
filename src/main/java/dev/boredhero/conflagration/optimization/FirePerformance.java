@@ -17,11 +17,14 @@ public final class FirePerformance {
 
     // Safe until the common config is loaded. Refreshed on tag load and server start.
     private static volatile boolean optimizeNeighbourScans = true;
+    private static volatile boolean suppressFireDrops;
     private static volatile FireEngineMode requestedEngine = FireEngineMode.VANILLA;
     private static volatile double vanillaSpreadSpeed = 1.0;
     private static volatile boolean frontierActive;
     private static volatile double frontierSpreadSpeed = 1.0;
     private static volatile int frontierEmberJumpDistance = 2;
+    private static volatile boolean frontierEmberParticles = true;
+    private static volatile int frontierMaxParticleArcsPerTick = 8;
     private static volatile int frontierRescanInterval = 200;
     private static volatile int frontierMaxEventsPerTick = 2048;
     private static volatile int frontierMaxSourcesPerTick = 256;
@@ -38,6 +41,7 @@ public final class FirePerformance {
         FireEngineMode previousEngine = requestedEngine;
         optimizeNeighbourScans = ConflagrationConfig.ENABLED.get()
                 && ConflagrationConfig.OPTIMIZE_NEIGHBOUR_SCANS.get();
+        suppressFireDrops = ConflagrationConfig.ENABLED.get();
         requestedEngine = ConflagrationConfig.ENABLED.get()
                 ? ConflagrationConfig.FIRE_ENGINE.get()
                 : FireEngineMode.VANILLA;
@@ -50,6 +54,9 @@ public final class FirePerformance {
         frontierMaxPendingEvents = ConflagrationConfig.FRONTIER_MAX_PENDING_EVENTS.get();
         frontierSpreadSpeed = ConflagrationConfig.FRONTIER_SPREAD_SPEED.get();
         frontierEmberJumpDistance = ConflagrationConfig.FRONTIER_EMBER_JUMP_DISTANCE.get();
+        frontierEmberParticles = ConflagrationConfig.FRONTIER_EMBER_PARTICLES.get();
+        frontierMaxParticleArcsPerTick =
+                ConflagrationConfig.FRONTIER_MAX_PARTICLE_ARCS_PER_TICK.get();
         // Compatibility is resolved once the complete mod list is available at server start.
         // Preserve an already-resolved FRONTIER decision across datapack/tag reloads. A runtime
         // engine change still waits for the next server start so we never enable an unchecked path.
@@ -60,6 +67,10 @@ public final class FirePerformance {
 
     public static boolean optimizeNeighbourScans() {
         return optimizeNeighbourScans;
+    }
+
+    public static boolean suppressFireDrops() {
+        return suppressFireDrops;
     }
 
     public static boolean frontierActive() {
@@ -80,6 +91,14 @@ public final class FirePerformance {
 
     public static int frontierEmberJumpDistance() {
         return frontierEmberJumpDistance;
+    }
+
+    public static boolean frontierEmberParticles() {
+        return frontierEmberParticles;
+    }
+
+    public static int frontierMaxParticleArcsPerTick() {
+        return frontierMaxParticleArcsPerTick;
     }
 
     public static int frontierMaxEventsPerTick() {
@@ -153,6 +172,12 @@ public final class FirePerformance {
         log.info("[Conflagration] spread rate: {}x ({})",
                 frontierActive ? frontierSpreadSpeed : vanillaSpreadSpeed,
                 frontierActive ? "FRONTIER hazard" : "VANILLA ignition odds");
+        if (frontierActive) {
+            log.info("[Conflagration] ember jumps: radius {}, particles {} (max {} arcs/level/tick)",
+                    frontierEmberJumpDistance,
+                    frontierEmberParticles ? "enabled" : "disabled",
+                    frontierMaxParticleArcsPerTick);
+        }
         log.info("[Conflagration] allocation-safe neighbour scan optimization: {}",
                 optimizeNeighbourScans ? "enabled" : "disabled");
     }

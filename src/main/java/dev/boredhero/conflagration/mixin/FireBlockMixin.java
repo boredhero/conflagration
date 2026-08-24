@@ -6,6 +6,7 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import dev.boredhero.conflagration.optimization.FirePerformance;
+import dev.boredhero.conflagration.optimization.FireDropSuppression;
 import dev.boredhero.conflagration.optimization.FrontierFireEngine;
 import dev.boredhero.conflagration.optimization.VanillaRate;
 import net.minecraft.core.BlockPos;
@@ -13,6 +14,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.FireBlock;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -57,6 +59,27 @@ abstract class FireBlockMixin {
                                            CallbackInfo callback) {
         if (FrontierFireEngine.tick(level, position, state)) {
             callback.cancel();
+        }
+    }
+
+    /** Keeps structural cleanup caused by a successful burnout inside a no-drop context. */
+    @WrapOperation(
+            method = "checkBurnOut",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/Level;removeBlock(Lnet/minecraft/core/BlockPos;Z)Z"))
+    private boolean conflagration$suppressFireRemovalDrops(Level level,
+                                                           BlockPos position,
+                                                           boolean moving,
+                                                           Operation<Boolean> original) {
+        if (!FirePerformance.suppressFireDrops()) {
+            return original.call(level, position, moving);
+        }
+        FireDropSuppression.enter();
+        try {
+            return original.call(level, position, moving);
+        } finally {
+            FireDropSuppression.exit();
         }
     }
 

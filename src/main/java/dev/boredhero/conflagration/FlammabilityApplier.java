@@ -50,6 +50,8 @@ public final class FlammabilityApplier {
      */
     private static final TagKey<Block> PLANTS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Conflagration.MOD_ID, "plants"));
+    private static final TagKey<Block> KINDLING = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Conflagration.MOD_ID, "kindling"));
 
     private static final AppliedValueTracker<Block, Odds> APPLIED_VALUES = new AppliedValueTracker<>();
 
@@ -193,6 +195,9 @@ public final class FlammabilityApplier {
                     break;
                 }
             }
+        }
+        if (state.is(KINDLING)) {
+            categories.add(FuelCategory.KINDLING);
         }
         if (state.is(BlockTags.LEAVES)) {
             categories.add(FuelCategory.LEAVES);

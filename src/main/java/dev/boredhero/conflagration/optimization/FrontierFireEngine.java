@@ -113,6 +113,7 @@ public final class FrontierFireEngine {
         private long budgetTick = Long.MIN_VALUE;
         private int processedThisTick;
         private int sourcesThisTick;
+        private int particleArcsThisTick;
 
         LevelState(long now) {
             events = new FrontierEventWheel(now);
@@ -125,6 +126,7 @@ public final class FrontierFireEngine {
                 budgetTick = now;
                 processedThisTick = 0;
                 sourcesThisTick = 0;
+                particleArcsThisTick = 0;
             }
         }
 
@@ -223,6 +225,12 @@ public final class FrontierFireEngine {
             }
             if (level.setBlock(target, placed, 3)) {
                 nextSourceScan.remove(targetLong);
+                if (EmberParticles.isJump(source, target)
+                        && FirePerformance.frontierEmberParticles()
+                        && particleArcsThisTick < FirePerformance.frontierMaxParticleArcsPerTick()) {
+                    particleArcsThisTick++;
+                    EmberParticles.sendJump(level, source, target);
+                }
             }
         }
     }

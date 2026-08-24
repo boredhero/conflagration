@@ -34,6 +34,8 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.EnumValue<FrontierCompatibilityMode> FRONTIER_COMPATIBILITY;
     public static final ModConfigSpec.DoubleValue FRONTIER_SPREAD_SPEED;
     public static final ModConfigSpec.IntValue FRONTIER_EMBER_JUMP_DISTANCE;
+    public static final ModConfigSpec.BooleanValue FRONTIER_EMBER_PARTICLES;
+    public static final ModConfigSpec.IntValue FRONTIER_MAX_PARTICLE_ARCS_PER_TICK;
     public static final ModConfigSpec.IntValue FRONTIER_RESCAN_INTERVAL;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_EVENTS_PER_TICK;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_SOURCES_PER_TICK;
@@ -192,6 +194,17 @@ public final class ConflagrationConfig {
                         "beside fuel across short stone/path gaps; the outer ring receives a",
                         "distance-squared delay penalty. Higher values cost more neighbour reads.")
                 .defineInRange("frontier_ember_jump_distance", 2, 1, 4);
+
+        FRONTIER_EMBER_PARTICLES = builder
+                .comment("Show successful FRONTIER jumps as a short arc of vanilla ember particles.",
+                        "Uses built-in client assets, so players still do not need this mod.")
+                .define("frontier_ember_particles", true);
+
+        FRONTIER_MAX_PARTICLE_ARCS_PER_TICK = builder
+                .comment("Maximum successful ember-jump arcs sent per level per game tick.",
+                        "Each arc is five nearby-player particle packets; excess visuals are",
+                        "dropped without delaying or changing fire simulation.")
+                .defineInRange("frontier_max_particle_arcs_per_tick", 8, 0, 256);
 
         FRONTIER_RESCAN_INTERVAL = builder
                 .comment("Game ticks before FRONTIER re-discovers edges around the same source fire.",

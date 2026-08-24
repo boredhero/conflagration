@@ -40,6 +40,13 @@ class FirePresetTest {
         assertFalse(FirePreset.AGGRESSIVE.get(FuelCategory.CROPS).isInert());
     }
 
+    @Test
+    @DisplayName("torches and ladders are an explicit opt-in fuel")
+    void kindlingIsInertOnlyInVanilla() {
+        assertTrue(FirePreset.VANILLA.get(FuelCategory.KINDLING).isInert());
+        assertFalse(FirePreset.AGGRESSIVE.get(FuelCategory.KINDLING).isInert());
+    }
+
     @ParameterizedTest
     @EnumSource(value = FirePreset.class, names = {"SMOULDERING", "AGGRESSIVE", "INFERNO"})
     @DisplayName("every non-vanilla preset raises log ignite odds above vanilla's 5")

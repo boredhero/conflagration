@@ -308,9 +308,9 @@ public final class ConflagrationConfig {
 
         HEAT_DAMAGE_DOSE = builder
                 .comment("Radiant dose required for one two-second ignition pulse.",
-                        "Dose units are (kW/m^2)^(4/3) * minutes; 1.33 maps severe pain to",
-                        "Minecraft damage. Lower values make heat damage accumulate faster.")
-                .defineInRange("damage_dose", 1.33, 0.1, 20.0);
+                        "Dose units are (kW/m^2)^(4/3) * minutes. The default 0.45 compresses",
+                        "exposure into Minecraft fire lifetimes; 1.33 is the reference pain dose.")
+                .defineInRange("damage_dose", 0.45, 0.1, 20.0);
 
         HEAT_GLASS_SHATTERING = builder
                 .comment("Allow radiant heat to shatter ordinary glass blocks and panes.",

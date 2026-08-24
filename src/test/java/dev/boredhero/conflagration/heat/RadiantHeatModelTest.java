@@ -22,9 +22,15 @@ final class RadiantHeatModelTest {
     }
 
     @Test
-    void fourKilowattsReachesDefaultPainDoseInAboutThirteenSeconds() {
+    void fourKilowattsReachesReferencePainDoseInAboutThirteenSeconds() {
         double dose = RadiantHeatModel.doseIncrement(4.0, 2.5, 12.57);
         assertEquals(1.33, dose, 0.01);
+    }
+
+    @Test
+    void gameplayDoseFitsShortMinecraftFlameLifetimes() {
+        assertEquals(0.45, RadiantHeatModel.doseIncrement(4.0, 2.5, 4.25), 0.01);
+        assertEquals(0.45, RadiantHeatModel.doseIncrement(10.0, 2.5, 1.25), 0.01);
     }
 
     @Test

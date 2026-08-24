@@ -21,7 +21,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Vanilla-client ember arcs for successful FRONTIER jumps, with a bounded per-level packet budget.
 - A datapack-extensible kindling category for ladders and torch variants.
 - A sparse radiant-heat field with inverse-square source aggregation, standards-shaped entity
-  exposure dose, line-of-sight attenuation, and vanilla fire-damage semantics.
+  exposure dose compressed for short Minecraft flame lifetimes, line-of-sight attenuation, and
+  vanilla fire-damage semantics.
 - Sustained thermal fracture for ordinary glass blocks and panes, including break sound/particles,
   strict claim fallback, hard work budgets, datapack allow/immune tags, and a cancellable event.
 - Gameplay-scaled entity heat plus bounded, roof-sensitive vanilla smoke haze and severe indoor

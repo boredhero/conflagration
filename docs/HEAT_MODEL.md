@@ -38,7 +38,9 @@ Every 0.5 seconds, staggered by entity ID, heat above the default `2.5 kW/m^2` t
 dose += q^(4/3) * elapsed_minutes
 ```
 
-At the default dose `1.33`, the entity receives a two-second vanilla ignition pulse. Mapping the
+At the reference dose `1.33`, the entity receives a two-second vanilla ignition pulse. The shipped
+default is `0.45`, which reaches a pulse in roughly 4.3 seconds at 4 kW/m² and 1.3 seconds at
+10 kW/m² so short-lived Minecraft flame blocks can produce a noticeable hazard. Mapping the
 pain/tolerance dose to Minecraft health is a gameplay decision; the exponent, units, and selected
 threshold come from ISO/SFPE-style tenability work. Vanilla then owns actual damage, so fire-immune
 entities, Fire Resistance, creative immunity, damage events, and water/rain keep working. Dose

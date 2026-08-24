@@ -180,7 +180,7 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
     source_radiative_power_kw = 12.5
     dense_fire_power_multiplier = 1.5
     damage_threshold_kw_m2 = 2.5
-    damage_dose = 1.33
+    damage_dose = 0.45 # 1.33 is the reference real-world pain dose
     shatter_glass = true
     glass_radius = 8
     glass_heating_multiplier = 8.0
@@ -196,7 +196,9 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
 
 Entity exposure defaults to a deliberate `4.0` gameplay multiplier. The inverse-square field and
 dose curve are unchanged, but players encounter the hazard farther from a burning structure;
-`1.0` restores the reference calibration. Roofed spaces multiply smoke exposure because smoke
+`1.0` restores the reference power calibration. The default `damage_dose = 0.45` also compresses
+harm into short Minecraft flame lifetimes; use `1.33` for the reference exposure dose. Roofed
+spaces multiply smoke exposure because smoke
 cannot disperse vertically. Exposed players receive bounded vanilla smoke particles once per
 second, and severe indoor smoke applies a short hidden Blindness effect that clears quickly in
 clean air. This remains entirely server-driven and requires no client mod.

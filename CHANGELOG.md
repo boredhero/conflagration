@@ -6,6 +6,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Raise the default exposed-stone melting threshold from 25 to 30 kW/m², modestly reducing the
+  surface area and rate of magma creation around dense fires.
+
 ### Added
 - Allocation-safe fire neighbour scanning using composable MixinExtras wrappers, with a runtime
   config escape hatch and startup detection of known performance/fire mixin mods.

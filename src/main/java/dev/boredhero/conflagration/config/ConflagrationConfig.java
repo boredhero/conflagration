@@ -439,7 +439,7 @@ public final class ConflagrationConfig {
 
         HEAT_MELT_SURFACE_STONE_THRESHOLD = builder
                 .comment("Effective incident heat flux required for surface magma, kW/m^2.")
-                .defineInRange("melt_surface_stone_threshold_kw_m2", 25.0, 1.0, 200.0);
+                .defineInRange("melt_surface_stone_threshold_kw_m2", 30.0, 1.0, 200.0);
 
         HEAT_COOL_MAGMA = builder
                 .comment("Gradually return magma created by Conflagration to ordinary stone after",

@@ -19,6 +19,7 @@ public final class FirePerformance {
     private static volatile boolean optimizeNeighbourScans = true;
     private static volatile FireEngineMode requestedEngine = FireEngineMode.VANILLA;
     private static volatile boolean frontierActive;
+    private static volatile double frontierSpreadSpeed = 1.0;
     private static volatile int frontierRescanInterval = 200;
     private static volatile int frontierMaxEventsPerTick = 2048;
     private static volatile int frontierMaxSourcesPerTick = 256;
@@ -42,6 +43,7 @@ public final class FirePerformance {
         frontierMaxEventsPerTick = ConflagrationConfig.FRONTIER_MAX_EVENTS_PER_TICK.get();
         frontierMaxSourcesPerTick = ConflagrationConfig.FRONTIER_MAX_SOURCES_PER_TICK.get();
         frontierMaxPendingEvents = ConflagrationConfig.FRONTIER_MAX_PENDING_EVENTS.get();
+        frontierSpreadSpeed = ConflagrationConfig.FRONTIER_SPREAD_SPEED.get();
         // Compatibility is resolved once the complete mod list is available at server start.
         // Preserve an already-resolved FRONTIER decision across datapack/tag reloads. A runtime
         // engine change still waits for the next server start so we never enable an unchecked path.
@@ -60,6 +62,10 @@ public final class FirePerformance {
 
     public static int frontierRescanInterval() {
         return frontierRescanInterval;
+    }
+
+    public static double frontierSpreadSpeed() {
+        return frontierSpreadSpeed;
     }
 
     public static int frontierMaxEventsPerTick() {

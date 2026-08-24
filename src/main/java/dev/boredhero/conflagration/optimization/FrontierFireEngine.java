@@ -94,7 +94,10 @@ public final class FrontierFireEngine {
 
         int denominator = 100 + Math.max(0, verticalOffset - 1) * 100;
         double probability = Math.min(0.999, (score + 1.0) / denominator);
-        double meanTicks = 35.0 / probability;
+        // Scaling the hazard rate (rather than the sampled result or scan interval) retains the
+        // exponential arrival distribution: 2x speed means exactly half the mean waiting time.
+        double meanTicks = FrontierRate.meanDelayTicks(
+                probability, FirePerformance.frontierSpreadSpeed());
         long hash = mix64(level.getSeed() ^ source ^ Long.rotateLeft(target, 23));
         double unit = ((hash >>> 11) + 1.0) * 0x1.0p-53;
         int delay = (int) Math.ceil(-StrictMath.log(unit) * meanTicks);

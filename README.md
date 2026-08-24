@@ -110,6 +110,7 @@ accepted from 0 through 300; zero/zero makes a block inert.
 [performance]
     optimize_neighbour_scans = true
     engine = "VANILLA"
+    frontier_spread_speed = 2.0
 ```
 
 Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
@@ -126,6 +127,12 @@ checks. `AUTO_STRICT` falls back to `VANILLA` for an incompatible adapter versio
 unaudited claim/special-fire seam; every blocker is logged with mod name, id, version, reason, and
 the adapter needed for future support. See [`docs/FIRE_ENGINE.md`](docs/FIRE_ENGINE.md) for the
 algorithm, limits, research basis, compatibility matrix, and unsafe override.
+
+`frontier_spread_speed` is an arrival-rate multiplier used only by FRONTIER. `1.0` is the
+vanilla-speed baseline (FRONTIER still is not bit-for-bit vanilla); the default `2.0` halves the
+mean ignition delay and `4.0` quarters it while retaining the engine's exponential timing. It
+changes newly discovered arrivals, not events already waiting in the queue. The accepted range is
+`0.05`–`20.0`; queue and per-tick budgets remain hard safety limits at every speed.
 
 ### FTB Chunks
 

@@ -14,6 +14,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   compatibility fallback with actionable per-mod blocker logs.
 - Fail-closed FRONTIER claim adapters for FTB Chunks, Open Parties and Claims, and Flan, plus
   explicit blockers for unaudited claim and hybrid-server fire seams.
+- A `frontier_spread_speed` hazard-rate multiplier that changes ignition speed without discarding
+  FRONTIER's exponential arrival behavior or bypassing its work limits.
 - A dedicated `#conflagration:plants` tag for safe datapack extension.
 
 ### Fixed

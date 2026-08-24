@@ -110,7 +110,9 @@ accepted from 0 through 300; zero/zero makes a block inert.
 [performance]
     optimize_neighbour_scans = true
     engine = "VANILLA"
+    vanilla_spread_speed = 1.0
     frontier_spread_speed = 2.0
+    frontier_ember_jump_distance = 2
 ```
 
 Vanilla computes each of a candidate air block's six neighbours twice. The default optimization
@@ -134,6 +136,13 @@ mean ignition delay and `4.0` quarters it while retaining the engine's exponenti
 changes newly discovered arrivals, not events already waiting in the queue. The accepted range is
 `0.05`–`20.0`; queue and per-tick budgets remain hard safety limits at every speed.
 
+`vanilla_spread_speed` provides a narrower speedup for the stock algorithm. `1.0` is exact; higher
+values multiply only candidate ignition odds, leaving scheduled-tick cadence, burnout, random-call
+order, claim checks, and contextual mod hooks in place. `frontier_ember_jump_distance` controls
+FRONTIER's horizontal landing scan. Its default `2` lets embers find air beside wooden stairs,
+doors, and beds across short stone paths; the outer ring gets a distance-squared delay penalty.
+Set it to `1` for vanilla's local footprint.
+
 ### FTB Chunks
 
 ```toml
@@ -149,8 +158,9 @@ server without it, the option is ignored.
 
 ## Compatibility
 
-Flammability tuning still uses the public `FireBlock#setFlammable` API. The default performance
-layer uses three narrow, composable MixinExtras wrappers around allocations inside the private
+Flammability tuning still uses the public `FireBlock#setFlammable` API. Beds are intentionally
+included with the wool category, so village interiors are fuel rather than firebreaks. The default
+performance layer uses three narrow, composable MixinExtras wrappers around allocations inside the private
 neighbour helper. It does not replace `FireBlock.tick`, `checkBurnOut`, the helper itself, or any
 contextual NeoForge fire hook. The opt-in FRONTIER injection runs only after vanilla lifecycle and
 six face-sensitive burnout calls, then replaces the candidate loop under the compatibility policy

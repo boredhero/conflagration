@@ -2,10 +2,12 @@ package dev.boredhero.conflagration.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import dev.boredhero.conflagration.optimization.FirePerformance;
 import dev.boredhero.conflagration.optimization.FrontierFireEngine;
+import dev.boredhero.conflagration.optimization.VanillaRate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -63,6 +65,21 @@ abstract class FireBlockMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/core/Direction;values()[Lnet/minecraft/core/Direction;"))
     private Direction[] conflagration$reuseDirections(Operation<Direction[]> original) {
         return FirePerformance.optimizeNeighbourScans() ? CONFLAGRATION_DIRECTIONS : original.call();
+    }
+
+    /**
+     * Speeds vanilla's candidate ignition probability without changing tick cadence or replacing
+     * the helper. Claim mods that return zero remain zero, and call-site wrappers still run after
+     * this result is produced.
+     */
+    @ModifyReturnValue(
+            method = "getIgniteOdds(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)I",
+            at = @At("RETURN"))
+    private int conflagration$scaleVanillaIgnition(int original) {
+        if (FirePerformance.frontierActive()) {
+            return original;
+        }
+        return VanillaRate.scaleIgniteOdds(original, FirePerformance.vanillaSpreadSpeed());
     }
 
     @WrapOperation(

@@ -18,8 +18,10 @@ public final class FirePerformance {
     // Safe until the common config is loaded. Refreshed on tag load and server start.
     private static volatile boolean optimizeNeighbourScans = true;
     private static volatile FireEngineMode requestedEngine = FireEngineMode.VANILLA;
+    private static volatile double vanillaSpreadSpeed = 1.0;
     private static volatile boolean frontierActive;
     private static volatile double frontierSpreadSpeed = 1.0;
+    private static volatile int frontierEmberJumpDistance = 2;
     private static volatile int frontierRescanInterval = 200;
     private static volatile int frontierMaxEventsPerTick = 2048;
     private static volatile int frontierMaxSourcesPerTick = 256;
@@ -39,11 +41,15 @@ public final class FirePerformance {
         requestedEngine = ConflagrationConfig.ENABLED.get()
                 ? ConflagrationConfig.FIRE_ENGINE.get()
                 : FireEngineMode.VANILLA;
+        vanillaSpreadSpeed = ConflagrationConfig.ENABLED.get()
+                ? ConflagrationConfig.VANILLA_SPREAD_SPEED.get()
+                : 1.0;
         frontierRescanInterval = ConflagrationConfig.FRONTIER_RESCAN_INTERVAL.get();
         frontierMaxEventsPerTick = ConflagrationConfig.FRONTIER_MAX_EVENTS_PER_TICK.get();
         frontierMaxSourcesPerTick = ConflagrationConfig.FRONTIER_MAX_SOURCES_PER_TICK.get();
         frontierMaxPendingEvents = ConflagrationConfig.FRONTIER_MAX_PENDING_EVENTS.get();
         frontierSpreadSpeed = ConflagrationConfig.FRONTIER_SPREAD_SPEED.get();
+        frontierEmberJumpDistance = ConflagrationConfig.FRONTIER_EMBER_JUMP_DISTANCE.get();
         // Compatibility is resolved once the complete mod list is available at server start.
         // Preserve an already-resolved FRONTIER decision across datapack/tag reloads. A runtime
         // engine change still waits for the next server start so we never enable an unchecked path.
@@ -60,12 +66,20 @@ public final class FirePerformance {
         return frontierActive;
     }
 
+    public static double vanillaSpreadSpeed() {
+        return vanillaSpreadSpeed;
+    }
+
     public static int frontierRescanInterval() {
         return frontierRescanInterval;
     }
 
     public static double frontierSpreadSpeed() {
         return frontierSpreadSpeed;
+    }
+
+    public static int frontierEmberJumpDistance() {
+        return frontierEmberJumpDistance;
     }
 
     public static int frontierMaxEventsPerTick() {
@@ -136,6 +150,9 @@ public final class FirePerformance {
         }
         log.info("[Conflagration] fire spread engine: {}{}", frontierActive ? "FRONTIER" : "VANILLA",
                 requestedEngine == FireEngineMode.FRONTIER && !frontierActive ? " (fallback)" : "");
+        log.info("[Conflagration] spread rate: {}x ({})",
+                frontierActive ? frontierSpreadSpeed : vanillaSpreadSpeed,
+                frontierActive ? "FRONTIER hazard" : "VANILLA ignition odds");
         log.info("[Conflagration] allocation-safe neighbour scan optimization: {}",
                 optimizeNeighbourScans ? "enabled" : "disabled");
     }

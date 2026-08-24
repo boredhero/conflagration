@@ -32,7 +32,7 @@ public enum FuelCategory {
     /** Leaves. Already quite flammable in vanilla (30/60). */
     LEAVES,
 
-    /** Wool blocks. */
+    /** Wool blocks and beds. Beds are inert in stock 1.21.1 but village fires should consume them. */
     WOOL,
 
     /** Wool carpets. Vanilla's most ignitable block (60/20). */

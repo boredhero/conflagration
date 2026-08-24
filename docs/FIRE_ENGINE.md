@@ -24,6 +24,16 @@ itself remains statistically vanilla-shaped rather than bit-for-bit vanilla. The
 when an edge is discovered; already queued arrivals keep their sampled due time. Queue caps and
 per-tick work budgets still apply at every setting.
 
+`frontier_ember_jump_distance` expands the horizontal landing scan from vanilla's radius `1` to a
+default radius `2`. Only empty landing positions beside contextual fuel are eligible. Outer-ring
+arrivals receive a distance-squared probability penalty, are claim-checked at discovery and again
+at placement, and never load chunks. This permits occasional spotting across village paths and
+other short non-flammable gaps without turning solid masonry into fuel.
+
+VANILLA mode has a separate `vanilla_spread_speed` control. It scales the private helper's positive
+ignition-odds result while preserving zero/deny results, tick cadence, burnout calls, RNG order, and
+call-site claim wrappers. `1.0` is exact vanilla behavior.
+
 This is closer to a minimum-travel-time/event simulation than a synchronous cellular automaton:
 
 - Finney's minimum-travel-time formulation motivates earliest-arrival propagation over a graph:

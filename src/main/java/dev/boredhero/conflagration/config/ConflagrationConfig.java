@@ -31,6 +31,7 @@ public final class ConflagrationConfig {
     public static final ModConfigSpec.BooleanValue OPTIMIZE_NEIGHBOUR_SCANS;
     public static final ModConfigSpec.EnumValue<FireEngineMode> FIRE_ENGINE;
     public static final ModConfigSpec.EnumValue<FrontierCompatibilityMode> FRONTIER_COMPATIBILITY;
+    public static final ModConfigSpec.DoubleValue FRONTIER_SPREAD_SPEED;
     public static final ModConfigSpec.IntValue FRONTIER_RESCAN_INTERVAL;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_EVENTS_PER_TICK;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_SOURCES_PER_TICK;
@@ -168,6 +169,14 @@ public final class ConflagrationConfig {
                         "the vanilla spread loop. FORCE_UNSAFE bypasses that guard. It may allow fire",
                         "through claims or skip special block behavior; pack authors own the result.")
                 .defineEnum("frontier_compatibility", FrontierCompatibilityMode.AUTO_STRICT);
+
+        FRONTIER_SPREAD_SPEED = builder
+                .comment("FRONTIER ignition-arrival rate multiplier. 1.0 is the vanilla-speed",
+                        "baseline (FRONTIER timing is still not bit-for-bit vanilla). The default",
+                        "2.0 halves the mean sampled delay; 4.0 quarters it. This preserves the",
+                        "exponential distribution while making an established fire accelerate",
+                        "across available fuel more quickly.")
+                .defineInRange("frontier_spread_speed", 2.0, 0.05, 20.0);
 
         FRONTIER_RESCAN_INTERVAL = builder
                 .comment("Game ticks before FRONTIER re-discovers edges around the same source fire.",

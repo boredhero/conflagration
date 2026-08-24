@@ -17,6 +17,13 @@ and increased-burnout biome adjustment. It is statistically vanilla-shaped, not 
 vanilla. A positional hash based on the world seed and source/target positions makes results stable
 when queue budgets change; no shared world RNG is consumed.
 
+`frontier_spread_speed` multiplies the stochastic arrival rate. This is a hazard-rate control, not
+a scan-frequency shortcut: `1.0` is the vanilla-speed baseline, the default `2.0` gives half the
+mean wait, and `4.0` gives one quarter while keeping the same exponential distribution. FRONTIER
+itself remains statistically vanilla-shaped rather than bit-for-bit vanilla. The setting applies
+when an edge is discovered; already queued arrivals keep their sampled due time. Queue caps and
+per-tick work budgets still apply at every setting.
+
 This is closer to a minimum-travel-time/event simulation than a synchronous cellular automaton:
 
 - Finney's minimum-travel-time formulation motivates earliest-arrival propagation over a graph:

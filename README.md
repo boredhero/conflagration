@@ -240,7 +240,7 @@ NeoForge damage hooks. Solid line-of-sight obstruction reduces exposure, and no 
     scorch_grass_threshold_kw_m2 = 1.0
     melt_surface_stone_to_magma = true
     melt_surface_stone_radius = 4
-    melt_surface_stone_threshold_kw_m2 = 25.0
+    melt_surface_stone_threshold_kw_m2 = 30.0
     cool_generated_magma_to_stone = true
     magma_cooling_delay_seconds = 120
     magma_cooling_spread_seconds = 180

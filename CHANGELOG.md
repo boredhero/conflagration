@@ -16,6 +16,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicit blockers for unaudited claim and hybrid-server fire seams.
 - A `frontier_spread_speed` hazard-rate multiplier that changes ignition speed without discarding
   FRONTIER's exponential arrival behavior or bypassing its work limits.
+- Distance-penalized FRONTIER ember jumps across short non-flammable gaps, a composable VANILLA
+  ignition-speed multiplier, and explicit bed flammability through the wool fuel category.
 - A dedicated `#conflagration:plants` tag for safe datapack extension.
 
 ### Fixed

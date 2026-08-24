@@ -30,8 +30,10 @@ public final class ConflagrationConfig {
 
     public static final ModConfigSpec.BooleanValue OPTIMIZE_NEIGHBOUR_SCANS;
     public static final ModConfigSpec.EnumValue<FireEngineMode> FIRE_ENGINE;
+    public static final ModConfigSpec.DoubleValue VANILLA_SPREAD_SPEED;
     public static final ModConfigSpec.EnumValue<FrontierCompatibilityMode> FRONTIER_COMPATIBILITY;
     public static final ModConfigSpec.DoubleValue FRONTIER_SPREAD_SPEED;
+    public static final ModConfigSpec.IntValue FRONTIER_EMBER_JUMP_DISTANCE;
     public static final ModConfigSpec.IntValue FRONTIER_RESCAN_INTERVAL;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_EVENTS_PER_TICK;
     public static final ModConfigSpec.IntValue FRONTIER_MAX_SOURCES_PER_TICK;
@@ -163,6 +165,12 @@ public final class ConflagrationConfig {
                         "candidates every fire tick. FRONTIER changes timing and RNG distribution.")
                 .defineEnum("engine", FireEngineMode.VANILLA);
 
+        VANILLA_SPREAD_SPEED = builder
+                .comment("Ignition-odds multiplier used only by the VANILLA spread engine.",
+                        "1.0 preserves vanilla timing. Higher values make nearby fuel catch faster",
+                        "without changing fire tick cadence, burnout, claim checks, or mod hooks.")
+                .defineInRange("vanilla_spread_speed", 1.0, 1.0, 20.0);
+
         FRONTIER_COMPATIBILITY = builder
                 .comment("",
                         "AUTO_STRICT falls back to VANILLA when a known claim/fire mod injects into",
@@ -177,6 +185,13 @@ public final class ConflagrationConfig {
                         "exponential distribution while making an established fire accelerate",
                         "across available fuel more quickly.")
                 .defineInRange("frontier_spread_speed", 2.0, 0.05, 20.0);
+
+        FRONTIER_EMBER_JUMP_DISTANCE = builder
+                .comment("Maximum horizontal landing distance FRONTIER scans for ember jumps.",
+                        "1 matches vanilla's local footprint. The default 2 lets fire reach air",
+                        "beside fuel across short stone/path gaps; the outer ring receives a",
+                        "distance-squared delay penalty. Higher values cost more neighbour reads.")
+                .defineInRange("frontier_ember_jump_distance", 2, 1, 4);
 
         FRONTIER_RESCAN_INTERVAL = builder
                 .comment("Game ticks before FRONTIER re-discovers edges around the same source fire.",

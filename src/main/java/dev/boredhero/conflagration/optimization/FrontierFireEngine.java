@@ -83,7 +83,8 @@ public final class FrontierFireEngine {
                                    long target,
                                    int age,
                                    int odds,
-                                   int verticalOffset) {
+                                   int verticalOffset,
+                                   int horizontalOffset) {
         int score = (odds + 40 + level.getDifficulty().getId() * 7) / (age + 30);
         if (level.getBiome(BlockPos.of(source)).is(BiomeTags.INCREASED_FIRE_BURNOUT)) {
             score /= 2;
@@ -92,7 +93,8 @@ public final class FrontierFireEngine {
             return -1;
         }
 
-        int denominator = 100 + Math.max(0, verticalOffset - 1) * 100;
+        int jumpPenalty = horizontalOffset <= 1 ? 1 : horizontalOffset * horizontalOffset;
+        int denominator = (100 + Math.max(0, verticalOffset - 1) * 100) * jumpPenalty;
         double probability = Math.min(0.999, (score + 1.0) / denominator);
         // Scaling the hazard rate (rather than the sampled result or scan interval) retains the
         // exponential arrival distribution: 2x speed means exactly half the mean waiting time.
@@ -151,8 +153,9 @@ public final class FrontierFireEngine {
 
             int age = fireState.getValue(FireBlock.AGE);
             BlockPos.MutableBlockPos target = new BlockPos.MutableBlockPos();
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
+            int jumpDistance = FirePerformance.frontierEmberJumpDistance();
+            for (int x = -jumpDistance; x <= jumpDistance; x++) {
+                for (int z = -jumpDistance; z <= jumpDistance; z++) {
                     for (int y = -1; y <= 4; y++) {
                         if (x == 0 && y == 0 && z == 0) {
                             continue;
@@ -169,7 +172,9 @@ public final class FrontierFireEngine {
                             continue;
                         }
                         long targetLong = target.asLong();
-                        int delay = sampleDelay(level, source, targetLong, age, odds, y);
+                        int horizontalOffset = Math.max(Math.abs(x), Math.abs(z));
+                        int delay = sampleDelay(
+                                level, source, targetLong, age, odds, y, horizontalOffset);
                         if (delay > 0) {
                             schedule(source, targetLong, age, now + delay);
                         }

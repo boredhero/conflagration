@@ -197,7 +197,7 @@ public final class FlammabilityApplier {
         if (state.is(BlockTags.LEAVES)) {
             categories.add(FuelCategory.LEAVES);
         }
-        if (state.is(BlockTags.WOOL)) {
+        if (state.is(BlockTags.WOOL) || state.is(BlockTags.BEDS)) {
             categories.add(FuelCategory.WOOL);
         }
         if (state.is(BlockTags.WOOL_CARPETS)) {

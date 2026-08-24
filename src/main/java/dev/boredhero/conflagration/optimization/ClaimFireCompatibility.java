@@ -58,6 +58,14 @@ final class ClaimFireCompatibility {
             if (!ModList.get().isLoaded(spec.modId())) {
                 continue;
             }
+            String installedVersion = version(spec.modId());
+            if (spec.modId().equals("ftbchunks")
+                    && !ModVersionRules.ftbChunksOwnsFireSpread(installedVersion)) {
+                log.info("[Conflagration] FRONTIER claim adapter: NOT REQUIRED - {} {} [{}] "
+                                + "predates FTB fire-spread ownership (introduced in 2101.1.15)",
+                        displayName(spec.modId(), spec.displayName()), installedVersion, spec.modId());
+                continue;
+            }
             try {
                 resolved.add(resolve(spec));
                 log.info("[Conflagration] FRONTIER claim adapter: ACTIVE - {} {} [{}] via {}#{}; permission results are not cached",
@@ -87,6 +95,24 @@ final class ClaimFireCompatibility {
                 }
             } catch (Throwable throwable) {
                 FirePerformance.disableFrontierAtRuntime(
+                        adapter.spec().displayName(), adapter.spec().modId(), throwable);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean mayShatterGlass(ServerLevel level, BlockPos source, BlockPos target) {
+        if (!FirePerformance.directBlockEffectsAllowed()) {
+            return false;
+        }
+        for (ActiveAdapter adapter : active) {
+            try {
+                if (!adapter.allows(level, source, target)) {
+                    return false;
+                }
+            } catch (Throwable throwable) {
+                FirePerformance.disableDirectBlockEffectsAtRuntime(
                         adapter.spec().displayName(), adapter.spec().modId(), throwable);
                 return false;
             }

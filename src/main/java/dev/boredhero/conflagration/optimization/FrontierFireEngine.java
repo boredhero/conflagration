@@ -1,5 +1,6 @@
 package dev.boredhero.conflagration.optimization;
 
+import dev.boredhero.conflagration.heat.FireHeatManager;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -225,6 +226,7 @@ public final class FrontierFireEngine {
             }
             if (level.setBlock(target, placed, 3)) {
                 nextSourceScan.remove(targetLong);
+                FireHeatManager.observe(level, target, placed);
                 if (EmberParticles.isJump(source, target)
                         && FirePerformance.frontierEmberParticles()
                         && particleArcsThisTick < FirePerformance.frontierMaxParticleArcsPerTick()) {

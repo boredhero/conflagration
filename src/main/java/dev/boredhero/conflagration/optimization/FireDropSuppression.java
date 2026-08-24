@@ -7,6 +7,10 @@ package dev.boredhero.conflagration.optimization;
  * actually selected a block for removal, not for unsuccessful face checks. The server world is
  * single-threaded, while the ThreadLocal keeps integrated client/server and test threads isolated.
  */
+/**
+ * Covers the entire synchronous removal cascade so crops, flowers, doors, ladders, and other
+ * fire-consumed blocks cannot leak drops through neighbour/support updates.
+ */
 public final class FireDropSuppression {
 
     private static final ThreadLocal<Depth> DEPTH = new ThreadLocal<>();

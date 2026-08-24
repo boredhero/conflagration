@@ -32,6 +32,9 @@ public enum FuelCategory {
     /** Small wooden attachments such as torches and ladders, consumed quickly and without drops. */
     KINDLING,
 
+    /** Wooden chests and trapped chests; inventory destruction is controlled separately. */
+    CHESTS,
+
     /** Leaves. Already quite flammable in vanilla (30/60). */
     LEAVES,
 

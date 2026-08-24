@@ -66,7 +66,8 @@ public final class FireHeatManager {
     private static final int MAGMA_COOLING_CHECKS_PER_TICK = 8;
     private static final int MAX_TRACKED_COOLING_MAGMA = 16_384;
     private static final int MAGMA_FILE_MAGIC = 0x43464D47; // CFMG
-    private static final int MAGMA_FILE_VERSION = 1;
+    private static final int LEGACY_MAGMA_FILE_VERSION = 1;
+    private static final int MAGMA_FILE_VERSION = 2;
     private static final long NO_CELL = Long.MIN_VALUE;
 
     private static final TagKey<Block> THERMAL_FRACTURABLE = TagKey.create(
@@ -904,10 +905,28 @@ public final class FireHeatManager {
             }
             try (DataInputStream input = new DataInputStream(
                     new BufferedInputStream(Files.newInputStream(path)))) {
-                if (input.readInt() != MAGMA_FILE_MAGIC
-                        || input.readInt() != MAGMA_FILE_VERSION) {
+                if (input.readInt() != MAGMA_FILE_MAGIC) {
                     throw new IOException("unsupported header");
                 }
+                int version = input.readInt();
+                long currentGameTime = level.getGameTime();
+                long currentWallTime = System.currentTimeMillis();
+                long savedGameTime;
+                long savedWallTime;
+                if (version == MAGMA_FILE_VERSION) {
+                    savedGameTime = input.readLong();
+                    savedWallTime = input.readLong();
+                } else if (version == LEGACY_MAGMA_FILE_VERSION) {
+                    // Version 1 did not retain enough timing information to distinguish online
+                    // from offline time. Count its file age once during migration; the live heat
+                    // check below still prevents actively heated magma from cooling early.
+                    savedGameTime = currentGameTime;
+                    savedWallTime = Files.getLastModifiedTime(path).toMillis();
+                } else {
+                    throw new IOException("unsupported magma file version " + version);
+                }
+                long offlineTicks = MagmaCoolingClock.offlineTicks(
+                        savedGameTime, savedWallTime, currentGameTime, currentWallTime);
                 int count = input.readInt();
                 if (count < 0 || count > MAX_TRACKED_COOLING_MAGMA) {
                     throw new IOException("invalid magma count " + count);
@@ -915,12 +934,19 @@ public final class FireHeatManager {
                 for (int index = 0; index < count; index++) {
                     long target = input.readLong();
                     coolingMagmaQueue.add(target);
-                    magmaCoolAt.put(target, input.readLong());
+                    magmaCoolAt.put(target, MagmaCoolingClock.adjustedDueTick(
+                            input.readLong(), offlineTicks, currentGameTime));
                     magmaOriginalSource.put(target, input.readLong());
                 }
+                magmaDirty = version != MAGMA_FILE_VERSION || offlineTicks > 0;
                 if (count > 0 && runtimeLog != null) {
-                    runtimeLog.info("[Conflagration] restored {} cooling magma blocks for {}",
-                            count, level.dimension().location());
+                    runtimeLog.info("[Conflagration] restored {} cooling magma blocks for {}{}",
+                            count,
+                            level.dimension().location(),
+                            offlineTicks > 0
+                                    ? " (caught up " + offlineTicks / 20
+                                            + "s of offline cooling)"
+                                    : "");
                 }
             } catch (EOFException exception) {
                 if (runtimeLog != null) {
@@ -949,6 +975,8 @@ public final class FireHeatManager {
                         new BufferedOutputStream(Files.newOutputStream(temporary)))) {
                     output.writeInt(MAGMA_FILE_MAGIC);
                     output.writeInt(MAGMA_FILE_VERSION);
+                    output.writeLong(level.getGameTime());
+                    output.writeLong(System.currentTimeMillis());
                     output.writeInt(coolingMagmaQueue.size());
                     for (long target : coolingMagmaQueue) {
                         output.writeLong(target);
